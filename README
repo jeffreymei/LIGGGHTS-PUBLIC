@@ -96,3 +96,5 @@ This toolkit has been modified, following Agnieszka Herman's Sea Ice Toolkit
 (DESIgn, https://herman.ocean.ug.edu.pl/LIGGGHTSseaice.html), but extended into 3D.
 It uses the LIGGGHTS 3.1.0 version as a base. The buoyancy module from LIGGGHTS 
 3.3.0 has been added as well. 
+
+It has been tested to compile correctly with Ubuntu 14.04 (cd src; make -j4 ubuntuVTK). 
