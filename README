@@ -1,6 +1,5 @@
-<<<<<<< HEAD
 ----------------------------------------------------------------------
-This is the
+This is a fork of the 
 
 ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
 ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
@@ -66,7 +65,6 @@ doc/Section_start.html	   how to build and use
 
 ----------------------------------------------------------------------
 
-<<<<<<< HEAD
 Some parts of LIGGGHTS® are based on LAMMPS
 =======
 LIGGGHTS is based on LAMMPS
@@ -93,3 +91,8 @@ more information about the code and its uses.
 
 Core developer and main author of LIGGGHTS®:
 Christoph Kloss, christoph.kloss@dcs-computing.com
+
+This toolkit has been modified, following Agnieszka Herman's Sea Ice Toolkit 
+(DESIgn, https://herman.ocean.ug.edu.pl/LIGGGHTSseaice.html), but extended into 3D.
+It uses the LIGGGHTS 3.1.0 version as a base. The buoyancy module from LIGGGHTS 
+3.3.0 has been added as well. 
