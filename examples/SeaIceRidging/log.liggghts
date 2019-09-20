@@ -1,0 +1,181 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.1.0, compiled 2019-09-20-17:09:45 by jeffrey, git commit 1e5c8ac356e2271785a7406527dcbdaec1a04e38 based on LAMMPS 23 Nov 2013)
+# in-file for test under uniaxial compressive stress
+# Simulation with bonds, 2D, with specified strain Vy/Ly
+variable        runID  string run1ga
+variable        dt     equal  0.000002 #was 0.000002
+variable        dtsnap equal  .5/${dt}
+variable        dtsnap equal  .5/2e-06
+variable        dtthrm equal  .5/${dt}
+variable        dtthrm equal  .5/2e-06
+variable        trun   equal  460/${dt}
+variable        trun   equal  460/2e-06
+variable        tset   equal  80/${dt}
+variable        tset   equal  80/2e-06
+
+#===== Initialization:
+
+units           si
+dimension	2
+newton		off off
+boundary	s s p #was ssp
+#processors      5 1 1
+atom_style	hybrid disk bond/gran/disk
+atom_modify     map array
+pair_style      gran model hertz/stiffness/disk
+#pair_style      gran model hertz/disk rolling_friction epsd #added
+bond_style      gran/disk
+special_bonds   lj/coul 0 1 1 #extra 100
+
+#===== Atom properties:
+
+read_data       ./init/thin_rough.init
+  6 = max bonds/atom
+  orthogonal box = (-73.831 0.526 -0.5) to (73.831 10.526 0.5)
+  6 by 1 by 1 MPI processor grid
+  1627 atoms
+  2449 bonds
+  6 = max # of 1-2 neighbors
+  6 = max # of special neighbors
+pair_coeff	* *
+fix             m1 all property/global youngsModulus peratomtype 9e9
+fix             m2 all property/global poissonsRatio peratomtype 0.33
+fix             m3 all property/global coefficientRestitution peratomtypepair 1 0.7 #was 0.9
+fix             m4 all property/global coefficientFriction peratomtypepair 1 0.7 #was 0.7
+fix             m5 all property/global kn peratomtypepair 1 6.7e8 #elastic constant
+fix             m6 all property/global kt peratomtypepair 1 2.7e8
+fix             m7 all property/global gamman peratomtypepair 1 1.0 #viscoelastic damping
+fix             m8 all property/global gammat peratomtypepair 1 0.5
+#fix             m9b all property/global coefficientRollingViscousDamping peratomtypepair 1 0.01
+#fix             m9 all property/global coefficientRollingFriction peratomtypepair 1 0.1
+
+#===== Bond properties:
+
+variable        E     equal 9e10 #Young modulus
+variable        kn2ks equal 2.5 #2.5  # normal to shear stiffness ratio
+variable        sigmacmax equal 1e9 #3.5e4#1.e6 cf Tremblay Hakakian 06
+variable        sigmatmax equal 1e7 #1.e5 #tensile
+variable        taumax    equal 1e7 #1.e6 #shear
+#                  lamR thb db lamB E
+bond_coeff      1  0.8 0.5 0.0 0.6 ${E} ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+bond_coeff      1  0.8 0.5 0.0 0.6 90000000000 ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+bond_coeff      1  0.8 0.5 0.0 0.6 90000000000 2.5 1 ${sigmacmax} ${sigmatmax} ${taumax}
+bond_coeff      1  0.8 0.5 0.0 0.6 90000000000 2.5 1 1000000000 ${sigmatmax} ${taumax}
+bond_coeff      1  0.8 0.5 0.0 0.6 90000000000 2.5 1 1000000000 10000000 ${taumax}
+bond_coeff      1  0.8 0.5 0.0 0.6 90000000000 2.5 1 1000000000 10000000 10000000
+bond_coeff      2  0.8 0.2 0.0 0.6 ${E} 0.1 1 1e9 1e7 1e7 #weak bonds
+bond_coeff      2  0.8 0.2 0.0 0.6 90000000000 0.1 1 1e9 1e7 1e7 
+
+#bond_coeff      1 1.0 1.0 0.0 0.8 ${E} ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+
+#variable        E     equal 6.e7 #6.e9 # Young modulus
+#variable        sigmacmax equal 1.e8 #3.5e4#1.e6 cf Tremblay Hakakian 06
+#variable        sigmatmax equal 1.e7
+#variable        taumax    equal 1.e8 #1.e6
+#bond_coeff       1 1.0 0.1 0.0 1.0 ${E} ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+
+
+#===== Settings:
+
+neighbor	0.1 bin #was 1.0 nsq
+neigh_modify	delay 0 page 100000 one 5000
+
+timestep	${dt}
+timestep	2e-06
+communicate	single cutoff 500.0 vel yes
+
+#===== Forcing:
+
+#======= divide atoms into 3 subregions, lower, middle and upper:
+
+variable        ylow1 equal bound(all,xmin)
+variable        ylow2 equal 0.8*v_ylow1
+variable        yupp1 equal bound(all,xmax)
+variable        yupp2 equal 0.8*v_yupp1
+#region          globe block  INF INF  0 1001   -0.5 0.5
+#region          lowbnd block -60.000 -50.0 0 1001.0 -0.5 0.5 units box
+region          surface block -1001.0 1001.0 7.45 7.55 -0.5 0.5 units box
+#region          uppbnd block 50 75 0 1001.0 -0.5 0.5 units box
+
+#region         lowfreeze block -20 20 -10 -1.5 -0.5 0.5 units box  ##just for initial
+#group          low region lowfreeze #justforinit
+#group           atl region lowbnd #LEFT
+#group           atr region uppbnd #RIGHT
+#group           aff subtract all atr #affected by gravity
+#group           rest subtrac all low  ##just for init
+region          dry block -1001.0 1001.0 7.5 1001 -0.5 0.5 units box
+region          wet block -1001.0 1001.0 0 7.5 -0.5 0.5 units box
+#region          hel block -5 -2 -1001.0 1001.0 -0.5 0.5 units box
+#======= freeze the lower boundary and move the upper one to obtain the prescribed strain:
+## make wall
+region          leftwall block -71 -69 3 10 -0.5 0.5 units box
+region          righwall block 69  71 3 10   -0.5 0.5 units box
+group           lwall region righwall
+100 atoms in group lwall
+group           rwall region leftwall
+100 atoms in group rwall
+group           atm subtract all lwall rwall
+1427 atoms in group atm
+
+#fix             fl atl freeze
+#fix             fl low freeze
+fix             ff1 all property/global rhoWater scalar 1025.0
+fix             ff2 all property/global rhoAir   scalar 1.27
+
+#only for low Re (not applicable here)
+#fix             drag aff viscous 0.00377
+
+##drag for high Re (here ~10^5)
+compute         rsq atm property/atom radius
+#variable        atdr atom (vx*vx+vy*vy)^(1.5)*c_rsq*c_rsq*3.14*1025*1.328/sqrt(c_rsq)/2*1000000
+variable        atdr atom (vx*vx+vy*vy)*756.35*c_rsq*c_rsq
+variable        atx atom v_atdr*cos(atan2(vy,(vx+0.01)))*-1
+variable        aty atom v_atdr*sin(atan2(vy,(vx+0.01)))*-1
+fix             atdrag atm addforce v_atx v_aty 0.0 region wet
+
+#turn off right floe motion
+variable        Vy equal -.1 #-100.0*ramp(0.0,1e-4)*(${yupp2}-${ylow2})
+variable        Vx equal 0.1
+fix             fu rwall move variable NULL NULL NULL v_Vx NULL NULL units box
+fix             fl lwall move variable NULL NULL NULL v_Vy NULL NULL units box
+#fix              push atr addforce -10 0 0
+#fix             wind atm seaice/wind -120 0 0.002 0.001 region dry
+
+#fix             fu atr move linear -0.5 NULL 0 #turn
+fix             flin rwall lineforce 1.0 0.0 0.0
+fix             flinb lwall lineforce 1.0 0.0 0.0
+variable        mg atom mass*-9.81 #Gravity
+
+#add surface tension
+#fix             surt aff addforce 0 -8.0 0 region surface #newtons/0.1cm
+fix             moregrav atm addforce 0 v_mg 0 region dry
+
+
+#======= final force settings:
+fix		grav atm gravity -9.81 vector 0 1 0 #x-axis, pointing down #was aff
+fix             bu atm buoyancy level 7.50 dim y density 1025.0 region wet #only works for liggghts 3.3.0
+#add wind
+fix             1 atm nve/disk #was atm
+fix             3 all enforce2d
+
+#===== Output:
+compute         pe all pe
+compute         ke all ke
+variable        eng equal pe+ke
+compute         2b all stress/atom pair
+compute         2a all stress/atom bond
+compute         bstr all reduce sum c_2a[1] c_2a[2] c_2a[4]
+compute         pstr all reduce sum c_2b[1] c_2b[2] c_2b[4]
+#compute         kerot all erotate/disk
+#compute         4a all pair/gran/local id force
+compute         4b all property/local batom1 batom2
+compute         4d all bond/gran/disk/local length thickness forcen forcet torquetz
+compute         5a all pressure thermo_temp pair
+compute         5b all pressure thermo_temp bond
+fix             fm all ave/atom 1 ${dtsnap} ${dtsnap} vx vy fx fy c_2b[1] c_2b[2] c_2b[4] c_2a[1] c_2a[2] c_2a[4]
+fix             fm all ave/atom 1 250000 ${dtsnap} vx vy fx fy c_2b[1] c_2b[2] c_2b[4] c_2a[1] c_2a[2] c_2a[4]
+fix             fm all ave/atom 1 250000 250000 vx vy fx fy c_2b[1] c_2b[2] c_2b[4] c_2a[1] c_2a[2] c_2a[4]
+#restart         500000 ./res/${runID}.restart1 ./res/${runID}.restart2
+thermo		${dtthrm}
+thermo		250000
+thermo_style	custom time c_5a[1] c_5a[2] c_5a[4] c_5b[1] c_5b[2] c_5b[4] c_pe c_ke #c_bstr[1] c_bstr[2] c_bstr[3] c_pstr[1] c_pstr[2] c_pstr[3]
+dump		1 all custom 20000000 ./res/${runID}.*.const id radius m

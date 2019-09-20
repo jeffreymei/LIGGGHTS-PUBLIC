@@ -1,0 +1,216 @@
+# in-file for test under uniaxial compressive stress
+# Simulation with bonds, 2D, with specified strain Vy/Ly
+variable        runID  string run1zc
+variable        dt     equal  0.000005 #was 0.000002
+variable        dtsnap equal  .1/${dt}
+variable        dtthrm equal  .1/${dt}
+variable        trun   equal  10/${dt} 
+variable        tset   equal  10/${dt}
+variable         tstart equal 3/${dt}
+
+#===== Initialization:
+
+units           si
+dimension	3
+newton		off off
+boundary	s s s #was ssp
+#processors      5 1 1 
+#atom_style	hybrid disk bond/gran/disk
+atom_style      hybrid granular bond/gran n_bondtypes 2 bonds_per_atom 12
+atom_modify     map array
+#pair_style      gran model hertz/stiffness/disk
+pair_style      gran model hertz/stiffness # rolling_friction epsd #added
+#bond_style      gran/disk
+bond_style      gran
+special_bonds   lj/coul 0 1 1 #extra 100
+
+#===== Atom properties:
+
+read_data       ./init/postconv_3dz_mixbonds_nowall.init
+pair_coeff	* *
+fix             m1 all property/global youngsModulus peratomtype 5e9 5e9
+fix             m2 all property/global poissonsRatio peratomtype 0.33 0.33
+fix             m3 all property/global coefficientRestitution peratomtypepair 2 0.1 0.1 0.1 0.1 #was 0.9
+fix             m4 all property/global coefficientFriction peratomtypepair 2 0.1 0.1 0.1 0.1 #was 0.7
+fix             m5 all property/global kn peratomtypepair 2 6.7e8 6.7e8 6.7e8 6.7e8 #elastic constant
+fix             m6 all property/global kt peratomtypepair 2 2.7e8 2.7e8 2.7e8 2.7e8
+fix             m7 all property/global gamman peratomtypepair 2 1.0 1.0 1.0 1.0 #viscoelastic damping
+fix             m8 all property/global gammat peratomtypepair 2 0.5 0.5 0.5 0.5
+#fix             m9b all property/global coefficientRollingViscousDamping peratomtypepair 1 0.01
+#fix             m9 all property/global coefficientRollingFriction peratomtypepair 1 0.1
+mass            1 1.0
+mass            2 1.0
+#===== Bond properties:
+
+variable        E     equal 5.4e8 #Young modulus
+variable        kn2ks equal 2.5 #2.5  # normal to shear stiffness ratio
+variable        sigmacmax equal 3e9 #3.5e4#1.e6 cf Tremblay Hakakian 06
+variable        sigmatmax equal 4e8 #1.e5 #tensile
+variable        taumax   equal  4e8 #1.e6 #shear
+#bond_coeff       1 0.1     1e10             1e10             1     4e5     4e5
+#                  lambda normal stiff, tangential stiff,   break normalstrength tangentialstrength
+#bond_coeff       2 0.1 1e9 1e9 1 1e2 2e2
+bond_coeff      1  0.5 0.5 ${E} ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+bond_coeff      2  0.5 0.5 ${E} 2.5 1 1e2 1e2 1e2 #weak bonds
+
+#bond_coeff      1 1.0 1.0 0.0 0.8 ${E} ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+
+#variable        E     equal 6.e7 #6.e9 # Young modulus
+#variable        sigmacmax equal 1.e8 #3.5e4#1.e6 cf Tremblay Hakakian 06
+#variable        sigmatmax equal 1.e7
+#variable        taumax    equal 1.e8 #1.e6
+#bond_coeff       1 1.0 0.1 0.0 1.0 ${E} ${kn2ks} 1 ${sigmacmax} ${sigmatmax} ${taumax}
+
+
+#===== Settings:
+
+neighbor	1.0 nsq
+neigh_modify	delay 0 page 100000 one 5000
+
+timestep	${dt}
+communicate	single cutoff 500.0 vel yes
+
+#===== Forcing:
+
+#======= divide atoms into 3 subregions, lower, middle and upper:
+
+#region          globe block  INF INF  INF INF 7.34 12 
+#region          lowbnd block -60.000 -50.0 0 1001.0 -0.5 0.5 units box
+#region          surface block -1001.0 1001.0 7.45 7.55 -0.5 0.5 units box
+#region          uppbnd block 50 75 0 1001.0 -0.5 0.5 units box 
+
+#region         lowfreeze block -20 20 -10 -1.5 -0.5 0.5 units box  ##just for initial
+#group          low region lowfreeze #justforinit
+#group           atl region lowbnd #LEFT
+#group           atr region uppbnd #RIGHT
+#group           aff subtract all atr #affected by gravity
+#group           rest subtrac all low  ##just for init
+region          dry block INF INF INF INF 7.5 INF  units box
+region          wet block INF INF  INF INF 0 7.5   units box
+region          upper block 0.2 9 INF INF 7.34 12 units box
+group           blowU region upper
+region          lower block -9 -0.2 INF INF 7.34 12 units box
+group           blowL region lower
+#region          upperu block 0.5 3.6 INF INF 7.34 12 units box 
+#group           blowUu region upperu
+#region          lowerl block -3.6 -0.5 INF INF 7.34 12 units box
+#group           blowLl region lowerl
+#region          hel block -5 -2 -1001.0 1001.0 -0.5 0.5 units box
+#======= freeze the lower boundary and move the upper one to obtain the prescribed strain:
+## make wall
+
+#for postconv_2dke
+#region          leftwall block -7.37 -7.35  -3.5 3.5 3 10 units box
+#region          righwall block  7.5113  7.55 -3.5 3.5 3 10 units box
+region            leftwall block -100 -99 -3.5 3.5 3 10
+region             righwall block 99 100 -3.5 3.5 3 10
+group           rwall region righwall
+group           lwall region leftwall
+group           atm subtract all lwall rwall
+region          dryR    block 0   INF INF INF 7.34 12   units box
+region          dryL    block INF 0  INF INF 7.34 12  units box
+group            rhalf region dryR
+group            lhalf region dryL
+region          dryN block INF INF 0 INF 7.34 12 units box
+region          dryS block INF INF INF 0 7.34 12 units box
+group           nhalf region dryN
+group           shalf region dryS
+
+#fix             fl atl freeze
+#fix             fl low freeze
+fix             ff1 all property/global rhoWater scalar 1025.0
+fix             ff2 all property/global rhoAir   scalar 1.27
+#only for low Re (not applicable here)
+#fix             drag aff viscous 0.00377
+
+##drag for high Re (here ~10^5)
+compute         rsq atm property/atom radius
+#variable        atdr atom (vx*vx+vy*vy)^(1.5)*c_rsq*c_rsq*3.14*1025*1.328/sqrt(c_rsq)/2*1000000
+variable        aty atom abs(vy)*vy*-756.35*c_rsq*c_rsq
+variable        atx atom abs(vx)*vx*-756.35*c_rsq*c_rsq
+variable        atz atom abs(vz)*vz*-756.35*c_rsq*c_rsq
+#variable        atx atom v_atdr*cos(atan2(vy,(vx+0.01)))*-1
+#v#ariable        aty atom v_atdr*sin(atan2(vy,(vx+0.01)))*-1
+fix             atdrag atm addforce v_atx v_aty v_atz region wet
+
+#turn off right floe motion
+variable        Vr equal -0.2 #-100.0*ramp(0.0,1e-4)*(${yupp2}-${ylow2})
+variable        Vl equal 0.2
+#fix             fu rwall move variable NULL NULL NULL v_Vr NULL NULL units box
+#fix             fl lwall move variable NULL NULL NULL v_Vl NULL NULL units box
+#fix              push atr addforce -10 0 0 
+#fix             wind atm seaice/wind -120 0 0.002 0.001 region dry
+
+#fix             windR all seaice/wind -400 0 0.002 0.001 region dryR
+#fix             windL all seaice/wind  400 0 0.002 0.001 region dryL
+#fix             windN all seaice/wind 0 -300 0.002 0.001 region dryN
+#fix             windS all seaice/wind 0  300 0.002 0.001 region dryS
+#fix             fu atr move linear -0.5 NULL 0 #turn
+variable        mg atom mass*-9.81 #Gravity
+fix             windU blowU seaice/wind -20   0 0.002 0.001 region dryR
+#fix            windUu blowUu seaice/wind -600 0 0.002 0.001 region dryR
+fix             windL blowL seaice/wind 20 0 0.002 0.001 region dryL
+#fix             windLl blowLl seaice/wind 700 0 0.002 0.001 region dryL
+#fix             surt aff addforce 0 -8.0 0 region surface #newtons/0.1cm
+fix             moregrav atm addforce 0 0 v_mg region dry
+
+
+#======= final force settings:
+fix		grav atm gravity -9.81 vector 0 0 1 #x-axis, pointing down #was aff
+fix             bu atm buoyancy level 7.50 dim z density 1025.0 region wet #only works for liggghts 3.3.0
+#fix             drag all viscous 0.9 
+#add wind
+#fix             corr rwall lineforce 1.0 0.0 0.0 
+#fix             corrl lwall lineforce 1.0 0.0 0.0
+
+fix             1 atm nve/sphere #was atm
+#fix             3 all enforce2d
+
+#===== Output:
+compute         pe all pe
+compute         ke all ke
+#compute         4f all bond/local dist
+variable        eng equal pe+ke
+compute         2b all stress/atom pair
+compute         2a all stress/atom bond
+#compute         bstr all reduce sum c_2a[1] c_2a[2] c_2a[4]
+#compute         pstr all reduce sum c_2b[1] c_2b[2] c_2b[4]
+compute 11 all property/local batom1 batom2
+compute 21 all pair/gran/local force force_normal force_tangential
+compute 31 all reduce max c_11[1] c_11[2] c_21[4] replace 1 3 replace 2 3
+#thermo_style custom step c_31[1] c_31[2] c_31[3]
+
+#compute         kerot all erotate/disk
+#compute         bstr all reduce sum c_2a[1] c_2a[2] c_2a[4]
+#compute         pstr all reduce sum c_2b[1] c_2b[2] c_2b[4]
+#compute         4a all pair/gran/local id force force_normal force_tangential
+compute         4b all property/local batom1 batom2 btype batom1x batom1y batom1z batom2x batom2y batom2z
+#compute         4d all bond/gran/local length thickness forcen forcet torquetz
+compute         5a all pressure thermo_temp pair
+compute         5b all pressure thermo_temp bond
+fix             fm all ave/atom 1 ${dtsnap} ${dtsnap} vx vy fx fy c_2b[1] c_2b[2] c_2b[4] c_2a[1] c_2a[2] c_2a[4]
+#restart         500000 ./res/${runID}.restart1 ./res/${runID}.restart2
+thermo		${dtthrm}
+thermo_style	custom time c_5a[1] c_5a[2] c_5a[4] c_5b[1] c_5b[2] c_5b[4] c_31[3] c_ke #c_bstr[1] c_bstr[2] c_bstr[3] c_pstr[1] c_pstr[2] c_pstr[3]
+dump		1 all custom 20000000 ./res/${runID}.*.const id radius mass
+dump		2 all custom ${dtsnap} ./res/${runID}.* id x y vx vy omegaz fx fy tqz c_2b[1] c_2b[2] c_2b[4] c_2a[1] c_2a[2] c_2a[4]
+#dump            4 all custom ${dtsnap} ./res/${runID}.*.mean id f_fm[1] f_fm[2] f_fm[3] f_fm[4] f_fm[5] f_fm[6] f_fm[7]
+#dump            3 all local  ${dtsnap} ./res/${runID}.*.pairs c_4a[1] c_4a[2] c_4a[4] c_4a[5] 
+dump            dmp all custom ${dtsnap} ./res/${runID}.*.ding id type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius mass
+dump            stress all custom ${dtsnap} ./res/${runID}.*.stress id c_2a[1] c_2a[2] c_2a[3] c_2a[4] c_2a[5] c_2a[6] c_2b[1] c_2b[2] c_2b[3] c_2b[4] c_2b[5] c_2b[6]
+dump            5 all local  ${dtsnap} ./res/${runID}.*.bonds c_4b[1] c_4b[2] c_4b[3] c_4b[4] c_4b[5] c_4b[6] c_4b[7] c_4b[8] c_4b[9]
+dump            6 all local ${dtsnap} ./res/${runID}.*.forces c_21[1] c_21[2] c_21[3] c_21[4] c_21[5] c_21[6] c_21[7] c_21[8] c_21[9]
+restart        200000 stiff_about_to_collide.restart
+#===== Run:
+run            ${tstart}
+#unfix           windL
+#unfix           windR
+#fix             windRR all seaice/wind -300 0 0.002 0.001 region dryR
+#fix             windLL all seaice/wind 300 0 0.002 0.001 region dryL
+run             ${trun} #big intial push
+#unfix         windRR
+#unfix         windLL
+
+#fix             windLLL all seaice/wind -300 0 0.002 0.001 region dryL
+#fix             windRRR all seaice/wind 300 0 0.002 0.001 region dryR
+run        ${tset}
