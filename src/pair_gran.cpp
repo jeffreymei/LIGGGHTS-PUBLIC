@@ -1,67 +1,46 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-    Copyright 2016-     CFDEMresearch GmbH, Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+/* ----------------------------------------------------------------------
+   Contributing authors for original version: Leo Silbert (SNL), Gary Grest (SNL)
+------------------------------------------------------------------------- */
+
+#include "math.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "atom.h"
 #include "atom_vec.h"
 #include "domain.h"
-#include "modify.h"
 #include "force.h"
 #include "update.h"
 #include "modify.h"
 #include "fix.h"
+#include "fix_pour.h"
 #include "fix_contact_history.h"
 #include "comm.h"
 #include "neighbor.h"
@@ -71,7 +50,9 @@
 #include "error.h"
 #include "properties.h"
 #include "fix_rigid.h"
+#include "fix_pour.h"
 #include "fix_particledistribution_discrete.h"
+#include "fix_pour.h"
 #include "fix_property_global.h"
 #include "fix_property_atom.h"
 #include "fix_contact_property_atom.h"
@@ -84,11 +65,13 @@ using namespace LAMMPS_NS;
 
 PairGran::PairGran(LAMMPS *lmp) : Pair(lmp)
 {
-  single_enable = 0;
+  single_enable = 1;
   no_virial_fdotr_compute = 1;
 
   suffix = NULL;
   neighprev = 0;
+
+  properties = new Properties(lmp);
 
   history = 0;
   dnum_pairgran = 0;
@@ -114,18 +97,8 @@ PairGran::PairGran(LAMMPS *lmp) : Pair(lmp)
 
   needs_neighlist = true;
 
-  fix_contact_forces_ = NULL;
-  store_contact_forces_ = false;
-  store_contact_forces_every_ = 1;
-  fix_contact_forces_stress_ = NULL;
-  store_contact_forces_stress_ = false;
-  fix_store_multicontact_data_ = NULL;
-  store_multicontact_data_ = false;
-
-  fix_relax_ = NULL;
-
-  if(modify->n_fixes_style("multisphere/advanced"))
-    do_store_contact_forces();
+  fix_contact_forces_ = 0;
+  store_contact_forces_ = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -134,8 +107,6 @@ PairGran::~PairGran()
 {
   if (fix_history) modify->delete_fix("contacthistory");
   if (fix_contact_forces_) modify->delete_fix(fix_contact_forces_->id);
-  if (fix_contact_forces_stress_) modify->delete_fix(fix_contact_forces_stress_->id);
-  if (fix_store_multicontact_data_) modify->delete_fix(fix_store_multicontact_data_->id);
 
   if (suffix) delete[] suffix;
 
@@ -147,6 +118,7 @@ PairGran::~PairGran()
     delete [] maxrad_dynamic;
     delete [] maxrad_frozen;
   }
+  delete properties;
 
   // tell cpl that pair gran is deleted
   if(cpl_) cpl_->reference_deleted();
@@ -239,8 +211,8 @@ void PairGran::init_style()
   if(strcmp(update->unit_style,"metal") ==0 || strcmp(update->unit_style,"real") == 0)
     error->all(FLERR,"Cannot use a non-consistent unit system with pair gran. Please use si,cgs or lj.");
 
-  if (!atom->sphere_flag && !atom->superquadric_flag && !atom->shapetype_flag)
-    error->all(FLERR,"Pair granular requires atom style sphere, superquadric or convexhull");
+  if (!atom->sphere_flag && !atom->disk_flag)
+    error->all(FLERR,"Pair granular requires atom style sphere or disk");
   if (comm->ghost_velocity == 0)
     error->all(FLERR,"Pair granular requires ghost atoms store velocity");
 
@@ -289,10 +261,6 @@ void PairGran::init_style()
     if (!fix_history)
     {
         
-        fix_history = static_cast<FixContactHistory*>(modify->find_fix_style_strict("contacthistory",0));
-        if(fix_history)
-            error->all(FLERR,"Can not use more than one pair style that uses contact history");
-
         char **fixarg = new char*[4+2*dnum_all];
         fixarg[3] = new char[3];
 
@@ -422,9 +390,9 @@ void PairGran::init_style()
   }
 
   // register per-particle properties for energy tracking
-  if(store_contact_forces_ && fix_contact_forces_ == NULL)
+  if(store_contact_forces_ && 0 == fix_contact_forces_)
   {
-    char **fixarg = new char*[19];
+    char **fixarg = new char*[17];
     fixarg[0]=(char *) "contactforces";
     fixarg[1]=(char *) "all";
     fixarg[2]=(char *) "contactproperty/atom";
@@ -436,74 +404,16 @@ void PairGran::init_style()
     fixarg[8]=(char *) "0";
     fixarg[9]=(char *) "fz";
     fixarg[10]=(char *) "0";
-    fixarg[11]=(char *) "tx";
+    fixarg[11]=(char *) "ty";
     fixarg[12]=(char *) "0";
     fixarg[13]=(char *) "ty";
     fixarg[14]=(char *) "0";
     fixarg[15]=(char *) "tz";
     fixarg[16]=(char *) "0";
-    fixarg[17]=(char *) "reset";
-    fixarg[18]=(char *) "yes";
-    modify->add_fix(19,fixarg);
+    modify->add_fix(17,fixarg);
     fix_contact_forces_ = static_cast<FixContactPropertyAtom*>(modify->find_fix_id("contactforces"));
     delete []fixarg;
   }
-
-  // register per-particle properties for energy tracking
-  if(store_contact_forces_stress_ && fix_contact_forces_stress_ == NULL)
-  {
-    char **fixarg = new char*[15];
-    fixarg[0]=(char *) "contactforces_stress_";
-    fixarg[1]=(char *) "all";
-    fixarg[2]=(char *) "contactproperty/atom";
-    fixarg[3]=(char *) "contactforces_stress_";
-    fixarg[4]=(char *) "4";
-    fixarg[5]=(char *) "fx";
-    fixarg[6]=(char *) "0";
-    fixarg[7]=(char *) "fy";
-    fixarg[8]=(char *) "0";
-    fixarg[9]=(char *) "fz";
-    fixarg[10]=(char *) "0";
-    fixarg[11]=(char *) "j";
-    fixarg[12]=(char *) "0";
-    fixarg[13]=(char *) "reset";
-    fixarg[14]=(char *) "yes";
-    modify->add_fix(15,fixarg);
-    fix_contact_forces_stress_ = static_cast<FixContactPropertyAtom*>(modify->find_fix_id("contactforces_stress_"));
-    delete []fixarg;
-  }
-
-    if(store_multicontact_data_ && fix_store_multicontact_data_ == NULL)
-    {
-        // create a new per contact property which will contain the data for the computation according to Brodu et. al. 2016
-        // surfPosIJ will contain the position of the contact surface ij, realtive to position i
-        // normalForce will contain the normal component of the contact force
-        char **fixarg = new char*[15];
-        fixarg[0]=(char *) "multicontactData_";
-        fixarg[1]=(char *) "all";
-        fixarg[2]=(char *) "contactproperty/atom";
-        fixarg[3]=(char *) "multicontactData_";
-        fixarg[4]=(char *) "4";
-        fixarg[5]=(char *) "surfPosIJ_x";
-        fixarg[6]=(char *) "0";
-        fixarg[7]=(char *) "surfPosIJ_y";
-        fixarg[8]=(char *) "0";
-        fixarg[9]=(char *) "surfPosIJ_z";
-        fixarg[10]=(char *) "0";
-        fixarg[11]=(char *) "normalForce";
-        fixarg[12]=(char *) "0";
-        fixarg[13]=(char *) "reset";
-        fixarg[14]=(char *) "no";
-        modify->add_fix(15,fixarg);
-        fix_store_multicontact_data_ = static_cast<FixContactPropertyAtom*>(modify->find_fix_id("multicontactData_"));
-    delete []fixarg;
-  }
-
-  fix_sum_normal_force_ =
-      static_cast<FixPropertyAtom*>
-      (
-          modify->find_fix_property("sum_normal_force_","property/atom","scalar",0,0, "pair/gran", false)
-      );
 
   // need a gran neigh list and optionally a granular history neigh list
 
@@ -535,14 +445,10 @@ void PairGran::init_style()
   for (i = 1; i <= atom->ntypes; i++)
   onerad_dynamic[i] = onerad_frozen[i] = 0.0;
 
-  // include future particles as dynamic
+  // include future Fix pour particles as dynamic
 
   for (i = 0; i < modify->nfix; i++)
   {
-    
-    if(!modify->fix[i]->use_rad_for_cut_neigh_and_ghost())
-        continue;
-
     for(int j=1;j<=atom->ntypes;j++)
     {
         int pour_type = 0;
@@ -630,7 +536,6 @@ double PairGran::init_one(int i, int j)
   double cutoff = maxrad_dynamic[i]+maxrad_dynamic[j];
   cutoff = MAX(cutoff,maxrad_frozen[i]+maxrad_dynamic[j]);
   cutoff = MAX(cutoff,maxrad_dynamic[i]+maxrad_frozen[j]);
-
   return cutoff * neighbor->contactDistanceFactor;
 }
 
@@ -675,7 +580,6 @@ void PairGran::compute(int eflag, int vflag)
 
 void PairGran::compute_pgl(int eflag, int vflag)
 {
-  
   // update rigid body info for owned & ghost atoms if using FixRigid masses
   // body[i] = which body atom I is in, -1 if none
   // mass_body = mass of each rigid body
@@ -751,9 +655,9 @@ void PairGran::write_restart(FILE *fp)
   proc 0 reads from restart file, bcasts
 ------------------------------------------------------------------------- */
 
-void PairGran::read_restart(FILE *fp, const int major, const int minor)
+void PairGran::read_restart(FILE *fp)
 {
-  read_restart_settings(fp, major, minor);
+  read_restart_settings(fp);
   allocate();
 
   int i,j;
@@ -793,26 +697,4 @@ double PairGran::memory_usage()
 
 bool PairGran::forceoff() {
   return false;
-}
-
-void PairGran::cpl_add_pair(LCM::SurfacesIntersectData & sidata, LCM::ForceData & i_forces)
-{
-    const double fx = i_forces.delta_F[0];
-    const double fy = i_forces.delta_F[1];
-    const double fz = i_forces.delta_F[2];
-    const double tor1 = i_forces.delta_torque[0];
-    const double tor2 = i_forces.delta_torque[1];
-    const double tor3 = i_forces.delta_torque[2];
-    const double * const contact_point =
-#ifdef NONSPHERICAL_ACTIVE_FLAG
-        atom->shapetype_flag ? sidata.contact_point : NULL;
-#else
-        NULL;
-#endif
-    cpl_->add_pair(sidata.i, sidata.j, fx,fy,fz,tor1,tor2,tor3,sidata.contact_history, contact_point);
-}
-
-void PairGran::cpl_pair_finalize()
-{
-    cpl_->pair_finalize();
 }

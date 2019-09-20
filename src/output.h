@@ -1,46 +1,14 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_OUTPUT_H
@@ -71,33 +39,9 @@ class Output : protected Pointers {
   int *ivar_dump;              // variable index for dump frequency
   class Dump **dump;           // list of defined Dumps
 
-  Output(class LAMMPS *);
-  ~Output();
-  void init();
-  void setup(int memflag = 1);          // initial output before run/min
-  void write(bigint);                   // output for current timestep
-  void write_dump(bigint);              // force output of dump snapshots
-  void write_restart(bigint);           // force output of a restart file
-  void reset_timestep(bigint);          // reset next timestep for all output
-
-  void add_dump(int, char **);          // add a Dump to Dump list
-  void modify_dump(int, char **);       // modify a Dump
-  void delete_dump(char *);             // delete a Dump from Dump list
-
-  void set_thermo(int, char **);        // set thermo output freqquency
-  void create_thermo(int, char **);     // create a thermo style
-  void create_restart(int, char **);    // create Restart and restart files
-
-  void memory_usage();                  // print out memory usage
-
-  bool restart_requested(const bigint); // returns if a restart is requested (called by Neighbor::decide)
-
-  void request_restart(const bigint);   // requests a restart write in the next step (for use in Min)
-
- private:
-  bool restart_flag;           // true if any restart files are written
-  bool restart_flag_single;    // true if single restart files are written
-  bool restart_flag_double;    // true if double restart files are written
+  int restart_flag;            // 1 if any restart files are written
+  int restart_flag_single;     // 1 if single restart files are written
+  int restart_flag_double;     // 1 if double restart files are written
   bigint next_restart;         // next timestep to write any restart file
   bigint next_restart_single;  // next timestep to write a single restart file
   bigint next_restart_double;  // next timestep to write a double restart file
@@ -112,6 +56,25 @@ class Output : protected Pointers {
   char *restart1;              // name single restart file
   char *restart2a,*restart2b;  // names of double restart files
   class WriteRestart *restart; // class for writing restart files
+
+  Output(class LAMMPS *);
+  ~Output();
+  void init();
+  void setup(int memflag = 1);       // initial output before run/min
+  void write(bigint);                // output for current timestep
+  void write_dump(bigint);           // force output of dump snapshots
+  void write_restart(bigint);        // force output of a restart file
+  void reset_timestep(bigint);       // reset next timestep for all output
+
+  void add_dump(int, char **);       // add a Dump to Dump list
+  void modify_dump(int, char **);    // modify a Dump
+  void delete_dump(char *);          // delete a Dump from Dump list
+
+  void set_thermo(int, char **);     // set thermo output freqquency
+  void create_thermo(int, char **);  // create a thermo style
+  void create_restart(int, char **); // create Restart and restart files
+
+  void memory_usage();               // print out memory usage
 };
 
 }

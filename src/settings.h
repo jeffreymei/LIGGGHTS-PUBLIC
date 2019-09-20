@@ -1,43 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-2014 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Richard Berger (JKU Linz)
+------------------------------------------------------------------------- */
 #ifndef SETTINGS_H_
 #define SETTINGS_H_
 
@@ -46,9 +36,9 @@
 #include <set>
 #include <map>
 #include <sstream>
-#include <stdlib.h>
 
 using namespace LAMMPS_NS;
+using namespace std;
 
 template<typename T>
 class ValuePropagator {
@@ -63,7 +53,7 @@ public:
   {
     currentValue = value;
 
-    for(typename std::set<T*>::iterator it = targets.begin(); it != targets.end(); ++it) {
+    for(typename set<T*>::iterator it = targets.begin(); it != targets.end(); ++it) {
       *(*it) = value;
     }
   }
@@ -74,12 +64,12 @@ public:
 
 private:
   T currentValue;
-  std::set<T*> targets;
+  set<T*> targets;
 };
 
 class Setting {
 public:
-  Setting(std::string name, int num_params) : name(name), num_params(num_params)
+  Setting(string name, int num_params) : name(name), num_params(num_params)
   {
   }
   virtual ~Setting(){}
@@ -90,9 +80,9 @@ public:
 
   virtual void print_value(FILE * out) = 0;
 
-  std::string name;
+  string name;
   int num_params;
-  std::string error_message;
+  string error_message;
 };
 
 template<typename T>
@@ -101,18 +91,18 @@ class EnumSetting : public Setting
 public:
   typedef T value_type;
 
-  EnumSetting(std::string name) : Setting(name, 1)
+  EnumSetting(string name) : Setting(name, 1)
   {
   }
 
   virtual ~EnumSetting(){}
 
-  void addOption(std::string option, T value)
+  void addOption(string option, T value)
   {
     options[option] = value;
   }
 
-  void setDefault(std::string option){
+  void setDefault(string option){
     current.setValue(options[option]);
   }
 
@@ -122,12 +112,12 @@ public:
 
   int parseArguments(char ** args) {
     if(name != args[0]) return 0; // argument not consumed
-    std::string selected(args[1]);
+    string selected(args[1]);
     if(options.find(selected) != options.end()){
       current.setValue(options[selected]);
       return 2; // argument consumed
     } else {
-      std::stringstream ss;
+      stringstream ss;
       ss << "while parsing '" << name << "' argument: ";
       ss << "unknown option or wrong keyword order: '" << args[1] << "'";
       error_message = ss.str();
@@ -137,7 +127,7 @@ public:
 
   virtual void print_value(FILE* out) {
     T value = current.getValue();
-    for(typename std::map<std::string, T>::iterator it = options.begin(); it != options.end(); ++it) {
+    for(typename map<string, T>::iterator it = options.begin(); it != options.end(); ++it) {
       if(it->second == value) {
         fprintf(out, "%s", it->first.c_str());
         return;
@@ -148,7 +138,7 @@ public:
 
 private:
   ValuePropagator<T> current;
-  std::map<std::string, T> options;
+  map<string, T> options;
 };
 
 class DoubleSetting : public Setting
@@ -156,7 +146,7 @@ class DoubleSetting : public Setting
 public:
   typedef double value_type;
 
-  DoubleSetting(std::string name, double default_value) : Setting(name, 1)
+  DoubleSetting(string name, double default_value) : Setting(name, 1)
   {
     setDefault(default_value);
   }
@@ -187,7 +177,7 @@ private:
 
 class OnOffSetting : public EnumSetting<bool> {
 public:
-  OnOffSetting(std::string name, bool default_value) : EnumSetting<bool>(name)
+  OnOffSetting(string name, bool default_value) : EnumSetting<bool>(name)
   {
     addOption("off", false);
     addOption("on", true);
@@ -200,7 +190,7 @@ public:
 
 class YesNoSetting : public EnumSetting<bool> {
 public:
-  YesNoSetting(std::string name, bool default_value) : EnumSetting<bool>(name)
+  YesNoSetting(string name, bool default_value) : EnumSetting<bool>(name)
   {
     addOption("no", false);
     addOption("yes", true);
@@ -212,11 +202,11 @@ public:
 
 class Settings : protected Pointers
 {
-  typedef std::map<std::string, Setting*> SettingMap;
+  typedef map<string, Setting*> SettingMap;
   SettingMap settings;
 
   template<typename SettingType>
-  void registerSetting(std::string name, typename SettingType::value_type & variable, typename SettingType::value_type default_value) {
+  void registerSetting(string name, typename SettingType::value_type & variable, typename SettingType::value_type default_value) {
     if(settings.find(name) == settings.end()) {
       settings[name] = new SettingType(name, default_value);
     }
@@ -234,16 +224,16 @@ public:
     }
   }
 
-  void registerOnOff(std::string name, bool & variable, bool default_value = false)
+  void registerOnOff(string name, bool & variable, bool default_value = false)
   {
     registerSetting<OnOffSetting>(name, variable, default_value);
   }
 
-  void registerYesNo(std::string name, bool & variable, bool default_value = false) {
+  void registerYesNo(string name, bool & variable, bool default_value = false) {
     registerSetting<YesNoSetting>(name, variable, default_value);
   }
 
-  void registerDoubleSetting(std::string name, double & variable, double default_value = 0.0)
+  void registerDoubleSetting(string name, double & variable, double default_value = 0.0)
   {
     registerSetting<DoubleSetting>(name, variable, default_value);
   }
@@ -272,7 +262,7 @@ public:
         remaining -= consumed;
         remaining_args = &remaining_args[consumed];
       } else {
-        std::stringstream ss;
+        stringstream ss;
         ss << "Unknown argument or wrong keyword order: '" << remaining_args[0] << "'";
         error_message = ss.str();
         return false;

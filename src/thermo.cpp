@@ -1,59 +1,35 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #include "lmptype.h"
-#include <mpi.h>
-#include <cmath>
-#include <stdlib.h>
-#include <string.h>
+#include "mpi.h"
+#include "math.h"
+#include "stdlib.h"
+#include "string.h"
 #include "thermo.h"
 #include "atom.h"
 #include "update.h"
@@ -86,22 +62,28 @@ using namespace MathConst;
 // customize a new keyword by adding to this list:
 
 // step, elapsed, elaplong, dt, time, cpu, tpcpu, spcpu, cpuremain, part
-// atoms, temp, press, pe, ke
+// atoms, temp, press, pe, ke, etotal, enthalpy
+// evdwl, ecoul, epair, ebond, eangle, edihed, eimp, emol, elong, etail
 // vol, density, lx, ly, lz, xlo, xhi, ylo, yhi, zlo, zhi, xy, xz, yz,
 // xlat, ylat, zlat
+// pxx, pyy, pzz, pxy, pxz, pyz
 // fmax, fnorm
 // cella, cellb, cellc, cellalpha, cellbeta, cellgamma
 
 // customize a new thermo style by adding a DEFINE to this list
 // also insure allocation of line string is correct in constructor
 
-#define ONE "step atoms ke cpu"
-#define MULTI "step atoms ke cpu"
+#define ONE "step temp epair emol etotal press"
+#define MULTI "etotal ke temp pe ebond eangle edihed eimp evdwl ecoul elong press"
 
 enum{IGNORE,WARN,ERROR};           // same as write_restart.cpp
 enum{ONELINE,MULTILINE};
 enum{INT,FLOAT,BIGINT};
 enum{SCALAR,VECTOR,ARRAY};
+
+#define INVOKED_SCALAR 1
+#define INVOKED_VECTOR 2
+#define INVOKED_ARRAY 4
 
 #define DELTA 8
 
@@ -120,11 +102,9 @@ Thermo::Thermo(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   modified = 0;
   normuserflag = 0;
   lineflag = ONELINE;
-  lostflag = IGNORE;
+  lostflag = ERROR;
   lostbefore = 0;
   flushflag = 0;
-
-  last_natoms = 0; 
 
   // set style and corresponding lineflag
   // custom style builds its own line of keywords
@@ -138,10 +118,10 @@ Thermo::Thermo(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   //   64 = max per-arg chars in header or numeric output
 
   if (strcmp(style,"one") == 0) {
-    line = new char[256+4*64];
+    line = new char[256+6*64];
     strcpy(line,ONE);
   } else if (strcmp(style,"multi") == 0) {
-    line = new char[256+4*64];
+    line = new char[256+12*64];
     strcpy(line,MULTI);
     lineflag = MULTILINE;
 
@@ -159,14 +139,15 @@ Thermo::Thermo(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   // ptrs, flags, IDs for compute objects thermo may use or create
 
-  kin_eng = NULL;
-  erot = NULL;
+  temperature = NULL;
+  pressure = NULL;
+  pe = NULL;
 
-  index_kin_eng = -1;
-  index_erot = -1;
+  index_temp = index_press_scalar = index_press_vector = index_pe = -1;
 
-  id_kin_eng = (char *) "thermo_kin_eng";
-  id_erot = (char *) "thermo_erot";
+  id_temp = (char *) "thermo_temp";
+  id_press = (char *) "thermo_press";
+  id_pe = (char *) "thermo_pe";
 
   // count fields in line
   // allocate per-field memory
@@ -183,7 +164,7 @@ Thermo::Thermo(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
     "CPU = %%11.4f (sec) ----------------";
 
   sprintf(format_multi,fformat_multi,&bigint_format[1]);
-  format_float_one_def = (char *) "%14.8g";
+  format_float_one_def = (char *) "%12.8g";
   format_float_multi_def = (char *) "%14.4f";
   format_int_one_def = (char *) "%8d";
   format_int_multi_def = (char *) "%14d";
@@ -270,7 +251,6 @@ void Thermo::init()
   int icompute;
   for (i = 0; i < ncompute; i++) {
     icompute = modify->find_compute(id_compute[i]);
-    
     if (icompute < 0) error->all(FLERR,"Could not find thermo compute ID");
     computes[i] = modify->compute[icompute];
     cudable = cudable && computes[i]->cudable;
@@ -300,10 +280,10 @@ void Thermo::init()
 
   // set ptrs to keyword-specific Compute objects
 
-  if (index_kin_eng >= 0) kin_eng = computes[index_kin_eng];
-  if (index_erot >= 0) erot = computes[index_erot];
-
-  last_natoms = 0; 
+  if (index_temp >= 0) temperature = computes[index_temp];
+  if (index_press_scalar >= 0) pressure = computes[index_press_scalar];
+  if (index_press_vector >= 0) pressure = computes[index_press_vector];
+  if (index_pe >= 0) pe = computes[index_pe];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -314,18 +294,13 @@ void Thermo::header()
 
   int loc = 0;
   for (int i = 0; i < nfield; i++)
-  {
-    if (vtype[i] == FLOAT)
-        loc += sprintf(&line[loc],"%14s ",keyword[i]);
-    else if (vtype[i] == INT || vtype[i] == BIGINT)
-        loc += sprintf(&line[loc],"%8s ",keyword[i]);
-  }
+    loc += sprintf(&line[loc],"%s ",keyword[i]);
   sprintf(&line[loc],"\n");
 
   if (me == 0) {
     if (screen) fprintf(screen,"%s",line);
     if (logfile) fprintf(logfile,"%s",line);
-    if (thermofile) fprintf(thermofile,"%s",line);
+    if (thermofile) fprintf(thermofile,"%s",line); 
   }
 }
 
@@ -409,7 +384,6 @@ void Thermo::compute(int flag)
 
 bigint Thermo::lost_check()
 {
-  
   // ntotal = current # of atoms
 
   bigint ntotal;
@@ -417,14 +391,7 @@ bigint Thermo::lost_check()
   MPI_Allreduce(&nblocal,&ntotal,1,MPI_LMP_BIGINT,MPI_SUM,world);
   if (ntotal < 0 || ntotal > MAXBIGINT)
     error->all(FLERR,"Too many total atoms");
-
-  bool lost = false;
-  if(ntotal < last_natoms)
-    lost = true;
-  last_natoms = ntotal; 
-
-  if (!lost) 
-    return ntotal;
+  if (ntotal == atom->natoms) return ntotal;
 
   // if not checking or already warned, just return
   // reset total atom count
@@ -472,7 +439,72 @@ void Thermo::modify_params(int narg, char **arg)
 
   int iarg = 0;
   while (iarg < narg) {
-     if (strcmp(arg[iarg],"lost") == 0) {
+    if (strcmp(arg[iarg],"temp") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal thermo_modify command");
+      if (index_temp < 0) error->all(FLERR,"Thermo style does not use temp");
+      delete [] id_compute[index_temp];
+      int n = strlen(arg[iarg+1]) + 1;
+      id_compute[index_temp] = new char[n];
+      strcpy(id_compute[index_temp],arg[iarg+1]);
+
+      int icompute = modify->find_compute(arg[iarg+1]);
+      if (icompute < 0)
+        error->all(FLERR,"Could not find thermo_modify temperature ID");
+      temperature = modify->compute[icompute];
+
+      if (temperature->tempflag == 0)
+        error->all(FLERR,"Thermo_modify temperature ID does not "
+                   "compute temperature");
+      if (temperature->igroup != 0 && comm->me == 0)
+        error->warning(FLERR,
+                       "Temperature for thermo pressure is not for group all");
+
+      // reset id_temp of pressure to new temperature ID
+      // either pressure currently being used by thermo or "thermo_press"
+
+      if (index_press_scalar >= 0) {
+        icompute = modify->find_compute(id_compute[index_press_scalar]);
+        if (icompute < 0) error->all(FLERR,
+                                     "Pressure ID for thermo does not exist");
+      } else if (index_press_vector >= 0) {
+        icompute = modify->find_compute(id_compute[index_press_vector]);
+        if (icompute < 0) error->all(FLERR,
+                                     "Pressure ID for thermo does not exist");
+      } else icompute = modify->find_compute((char *) "thermo_press");
+
+      modify->compute[icompute]->reset_extra_compute_fix(arg[iarg+1]);
+
+      iarg += 2;
+
+    } else if (strcmp(arg[iarg],"press") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal thermo_modify command");
+      if (index_press_scalar < 0 && index_press_vector < 0)
+        error->all(FLERR,"Thermo style does not use press");
+
+      if (index_press_scalar >= 0) {
+        delete [] id_compute[index_press_scalar];
+        int n = strlen(arg[iarg+1]) + 1;
+        id_compute[index_press_scalar] = new char[n];
+        strcpy(id_compute[index_press_scalar],arg[iarg+1]);
+      }
+      if (index_press_vector >= 0) {
+        delete [] id_compute[index_press_vector];
+        int n = strlen(arg[iarg+1]) + 1;
+        id_compute[index_press_vector] = new char[n];
+        strcpy(id_compute[index_press_vector],arg[iarg+1]);
+      }
+
+      int icompute = modify->find_compute(arg[iarg+1]);
+      if (icompute < 0) error->all(FLERR,
+                                   "Could not find thermo_modify pressure ID");
+      pressure = modify->compute[icompute];
+
+      if (pressure->pressflag == 0)
+        error->all(FLERR,"Thermo_modify pressure ID does not compute pressure");
+
+      iarg += 2;
+
+    } else if (strcmp(arg[iarg],"lost") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal thermo_modify command");
       if (strcmp(arg[iarg+1],"ignore") == 0) lostflag = IGNORE;
       else if (strcmp(arg[iarg+1],"warn") == 0) lostflag = WARN;
@@ -655,18 +687,59 @@ void Thermo::parse_fields(char *str)
       addfield("Cu",&Thermo::compute_cu,FLOAT);
     } else if (strcmp(word,"atoms") == 0) {
       addfield("Atoms",&Thermo::compute_atoms,BIGINT);
+    } else if (strcmp(word,"temp") == 0) {
+      addfield("Temp",&Thermo::compute_temp,FLOAT);
+      index_temp = add_compute(id_temp,SCALAR);
+    } else if (strcmp(word,"press") == 0) {
+      addfield("Press",&Thermo::compute_press,FLOAT);
+      index_press_scalar = add_compute(id_press,SCALAR);
+    } else if (strcmp(word,"pe") == 0) {
+      addfield("PotEng",&Thermo::compute_pe,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
     } else if (strcmp(word,"ke") == 0) {
       addfield("KinEng",&Thermo::compute_ke,FLOAT);
-      index_kin_eng = add_compute(id_kin_eng,SCALAR);
-    } else if (strcmp(word,"erotate") == 0) {
-      addfield("RotEng",&Thermo::compute_erot,FLOAT);
-      char **carg = new char * [3];
-      carg[0] = id_erot;
-      carg[1] = (char *) "all";
-      carg[2] = (char *) "erotate";
-      modify->add_compute(3, carg);
-      delete [] carg;
-      index_erot = add_compute(id_erot,SCALAR);
+      index_temp = add_compute(id_temp,SCALAR);
+    } else if (strcmp(word,"etotal") == 0) {
+      addfield("TotEng",&Thermo::compute_etotal,FLOAT);
+      index_temp = add_compute(id_temp,SCALAR);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"enthalpy") == 0) {
+      addfield("Enthalpy",&Thermo::compute_enthalpy,FLOAT);
+      index_temp = add_compute(id_temp,SCALAR);
+      index_press_scalar = add_compute(id_press,SCALAR);
+      index_pe = add_compute(id_pe,SCALAR);
+
+    } else if (strcmp(word,"evdwl") == 0) {
+      addfield("E_vdwl",&Thermo::compute_evdwl,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"ecoul") == 0) {
+      addfield("E_coul",&Thermo::compute_ecoul,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"epair") == 0) {
+      addfield("E_pair",&Thermo::compute_epair,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"ebond") == 0) {
+      addfield("E_bond",&Thermo::compute_ebond,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"eangle") == 0) {
+      addfield("E_angle",&Thermo::compute_eangle,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"edihed") == 0) {
+      addfield("E_dihed",&Thermo::compute_edihed,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"eimp") == 0) {
+      addfield("E_impro",&Thermo::compute_eimp,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"emol") == 0) {
+      addfield("E_mol",&Thermo::compute_emol,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"elong") == 0) {
+      addfield("E_long",&Thermo::compute_elong,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+    } else if (strcmp(word,"etail") == 0) {
+      addfield("E_tail",&Thermo::compute_etail,FLOAT);
+      index_pe = add_compute(id_pe,SCALAR);
+
     } else if (strcmp(word,"vol") == 0) {
       addfield("Volume",&Thermo::compute_vol,FLOAT);
     } else if (strcmp(word,"density") == 0) {
@@ -704,6 +777,26 @@ void Thermo::parse_fields(char *str)
       addfield("Ylat",&Thermo::compute_ylat,FLOAT);
     } else if (strcmp(word,"zlat") == 0) {
       addfield("Zlat",&Thermo::compute_zlat,FLOAT);
+
+    } else if (strcmp(word,"pxx") == 0) {
+      addfield("Pxx",&Thermo::compute_pxx,FLOAT);
+      index_press_vector = add_compute(id_press,VECTOR);
+    } else if (strcmp(word,"pyy") == 0) {
+      addfield("Pyy",&Thermo::compute_pyy,FLOAT);
+      index_press_vector = add_compute(id_press,VECTOR);
+    } else if (strcmp(word,"pzz") == 0) {
+      addfield("Pzz",&Thermo::compute_pzz,FLOAT);
+      index_press_vector = add_compute(id_press,VECTOR);
+    } else if (strcmp(word,"pxy") == 0) {
+      addfield("Pxy",&Thermo::compute_pxy,FLOAT);
+      index_press_vector = add_compute(id_press,VECTOR);
+    } else if (strcmp(word,"pxz") == 0) {
+      addfield("Pxz",&Thermo::compute_pxz,FLOAT);
+      index_press_vector = add_compute(id_press,VECTOR);
+    } else if (strcmp(word,"pyz") == 0) {
+      addfield("Pyz",&Thermo::compute_pyz,FLOAT);
+      index_press_vector = add_compute(id_press,VECTOR);
+
     } else if (strcmp(word,"fmax") == 0) {
       addfield("Fmax",&Thermo::compute_fmax,FLOAT);
     } else if (strcmp(word,"fnorm") == 0) {
@@ -969,38 +1062,214 @@ int Thermo::evaluate_keyword(char *word, double *answer)
     compute_atoms();
     dvalue = bivalue;
 
-  } else if (strcmp(word,"ke") == 0) {
-    if (!kin_eng)
+  } else if (strcmp(word,"temp") == 0) {
+    if (!temperature)
       error->all(FLERR,"Thermo keyword in variable requires "
-                 "thermo to use/init ke");
+                 "thermo to use/init temp");
     if (update->whichflag == 0) {
-      if (kin_eng->invoked_scalar != update->ntimestep)
+      if (temperature->invoked_scalar != update->ntimestep)
         error->all(FLERR,"Compute used in variable thermo keyword between runs "
                    "is not current");
-    } else if (!(kin_eng->invoked_flag & INVOKED_SCALAR)) {
-      kin_eng->compute_scalar();
-      kin_eng->invoked_flag |= INVOKED_SCALAR;
+    } else if (!(temperature->invoked_flag & INVOKED_SCALAR)) {
+      temperature->compute_scalar();
+      temperature->invoked_flag |= INVOKED_SCALAR;
+    }
+    compute_temp();
+
+  } else if (strcmp(word,"press") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_SCALAR)) {
+      pressure->compute_scalar();
+      pressure->invoked_flag |= INVOKED_SCALAR;
+    }
+    compute_press();
+
+  } else if (strcmp(word,"pe") == 0) {
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    if (update->whichflag == 0) {
+      if (pe->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pe->invoked_flag & INVOKED_SCALAR)) {
+      pe->compute_scalar();
+      pe->invoked_flag |= INVOKED_SCALAR;
+    }
+    compute_pe();
+
+  } else if (strcmp(word,"ke") == 0) {
+    if (!temperature)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init temp");
+    if (update->whichflag == 0) {
+      if (temperature->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(temperature->invoked_flag & INVOKED_SCALAR)) {
+      temperature->compute_scalar();
+      temperature->invoked_flag |= INVOKED_SCALAR;
     }
     compute_ke();
 
-  }
-  else if (strcmp(word,"erotate") == 0)
-  {
-    if (!erot)
-      error->all(FLERR,"Thermo keyword in variable requires "
-                 "thermo to use/init erotate");
+  } else if (strcmp(word,"etotal") == 0) {
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
     if (update->whichflag == 0) {
-      if (erot->invoked_scalar != update->ntimestep)
+      if (pe->invoked_scalar != update->ntimestep)
         error->all(FLERR,"Compute used in variable thermo keyword between runs "
                    "is not current");
-    } else if (!(erot->invoked_flag & INVOKED_SCALAR)) {
-      erot->compute_scalar();
-      erot->invoked_flag |= INVOKED_SCALAR;
+    } else if (!(pe->invoked_flag & INVOKED_SCALAR)) {
+      pe->compute_scalar();
+      pe->invoked_flag |= INVOKED_SCALAR;
     }
-    compute_erot();
+    if (!temperature)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init temp");
+    if (update->whichflag == 0) {
+      if (temperature->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(temperature->invoked_flag & INVOKED_SCALAR)) {
+      temperature->compute_scalar();
+      temperature->invoked_flag |= INVOKED_SCALAR;
+    }
+    compute_etotal();
 
-  }
-  else if (strcmp(word,"vol") == 0) compute_vol();
+  } else if (strcmp(word,"enthalpy") == 0) {
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    if (update->whichflag == 0) {
+      if (pe->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pe->invoked_flag & INVOKED_SCALAR)) {
+      pe->compute_scalar();
+      pe->invoked_flag |= INVOKED_SCALAR;
+    }
+    if (!temperature)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init temp");
+    if (update->whichflag == 0) {
+      if (temperature->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(temperature->invoked_flag & INVOKED_SCALAR)) {
+      temperature->compute_scalar();
+      temperature->invoked_flag |= INVOKED_SCALAR;
+    }
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_scalar != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_SCALAR)) {
+      pressure->compute_scalar();
+      pressure->invoked_flag |= INVOKED_SCALAR;
+    }
+    compute_enthalpy();
+
+  } else if (strcmp(word,"evdwl") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_evdwl();
+
+  } else if (strcmp(word,"ecoul") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_ecoul();
+
+  } else if (strcmp(word,"epair") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_epair();
+
+  } else if (strcmp(word,"ebond") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_ebond();
+
+  } else if (strcmp(word,"eangle") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_eangle();
+
+  } else if (strcmp(word,"edihed") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_edihed();
+
+  } else if (strcmp(word,"eimp") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_eimp();
+
+  } else if (strcmp(word,"emol") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_emol();
+
+  } else if (strcmp(word,"elong") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_elong();
+
+  } else if (strcmp(word,"etail") == 0) {
+    if (update->eflag_global != update->ntimestep)
+      error->all(FLERR,"Energy was not tallied on needed timestep");
+    if (!pe)
+      error->all(FLERR,
+                 "Thermo keyword in variable requires thermo to use/init pe");
+    pe->invoked_flag |= INVOKED_SCALAR;
+    compute_etail();
+
+  } else if (strcmp(word,"vol") == 0) compute_vol();
   else if (strcmp(word,"density") == 0) compute_density();
   else if (strcmp(word,"lx") == 0) compute_lx();
   else if (strcmp(word,"ly") == 0) compute_ly();
@@ -1023,6 +1292,90 @@ int Thermo::evaluate_keyword(char *word, double *answer)
     compute_ylat();
   } else if (strcmp(word,"zlat") == 0) {
     compute_zlat();
+
+  } else if (strcmp(word,"pxx") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_vector != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_VECTOR)) {
+      pressure->compute_vector();
+      pressure->invoked_flag |= INVOKED_VECTOR;
+    }
+    compute_pxx();
+
+  } else if (strcmp(word,"pyy") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_vector != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_VECTOR)) {
+      pressure->compute_vector();
+      pressure->invoked_flag |= INVOKED_VECTOR;
+    }
+    compute_pyy();
+
+  } else if (strcmp(word,"pzz") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_vector != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_VECTOR)) {
+      pressure->compute_vector();
+      pressure->invoked_flag |= INVOKED_VECTOR;
+    }
+    compute_pzz();
+
+  } else if (strcmp(word,"pxy") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_vector != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_VECTOR)) {
+      pressure->compute_vector();
+      pressure->invoked_flag |= INVOKED_VECTOR;
+    }
+    compute_pxy();
+
+  } else if (strcmp(word,"pxz") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_vector != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_VECTOR)) {
+      pressure->compute_vector();
+      pressure->invoked_flag |= INVOKED_VECTOR;
+    }
+    compute_pxz();
+
+  } else if (strcmp(word,"pyz") == 0) {
+    if (!pressure)
+      error->all(FLERR,"Thermo keyword in variable requires "
+                 "thermo to use/init press");
+    if (update->whichflag == 0) {
+      if (pressure->invoked_vector != update->ntimestep)
+        error->all(FLERR,"Compute used in variable thermo keyword between runs "
+                   "is not current");
+    } else if (!(pressure->invoked_flag & INVOKED_VECTOR)) {
+      pressure->compute_vector();
+      pressure->invoked_flag |= INVOKED_VECTOR;
+    }
+    compute_pyz();
 
   } else if (strcmp(word,"fmax") == 0) compute_fmax();
   else if (strcmp(word,"fnorm") == 0) compute_fnorm();
@@ -1137,7 +1490,7 @@ void Thermo::compute_dt()
 
 void Thermo::compute_time()
 {
-  dvalue = update->get_cur_time();
+  dvalue = update->atime + (update->ntimestep-update->atimestep)*update->dt;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1246,18 +1599,184 @@ void Thermo::compute_atoms()
 
 /* ---------------------------------------------------------------------- */
 
-void Thermo::compute_ke()
+void Thermo::compute_temp()
 {
-  dvalue = kin_eng->scalar;
+  dvalue = temperature->scalar;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_press()
+{
+  dvalue = pressure->scalar;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pe()
+{
+  dvalue = pe->scalar;
   if (normflag) dvalue /= natoms;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void Thermo::compute_erot()
+void Thermo::compute_ke()
 {
-  dvalue = erot->scalar;
+  dvalue = temperature->scalar;
+  dvalue *= 0.5 * temperature->dof * force->boltz;
   if (normflag) dvalue /= natoms;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_etotal()
+{
+  compute_pe();
+  double ke = temperature->scalar;
+  ke *= 0.5 * temperature->dof * force->boltz;
+  if (normflag) ke /= natoms;
+  dvalue += ke;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_enthalpy()
+{
+  compute_etotal();
+  double etmp = dvalue;
+
+  compute_vol();
+  double vtmp = dvalue;
+  if (normflag) vtmp /= natoms;
+
+  compute_press();
+  double ptmp = dvalue;
+
+  dvalue = etmp + ptmp*vtmp/(force->nktv2p);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_evdwl()
+{
+  double tmp = 0.0;
+  if (force->pair) tmp += force->pair->eng_vdwl;
+  MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+
+  if (force->pair && force->pair->tail_flag) {
+    double volume = domain->xprd * domain->yprd * domain->zprd;
+    dvalue += force->pair->etail / volume;
+  }
+
+  if (normflag) dvalue /= natoms;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_ecoul()
+{
+  double tmp = 0.0;
+  if (force->pair) tmp += force->pair->eng_coul;
+  MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+  if (normflag) dvalue /= natoms;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_epair()
+{
+  double tmp = 0.0;
+  if (force->pair) tmp += force->pair->eng_vdwl + force->pair->eng_coul;
+  MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+
+  if (force->kspace) dvalue += force->kspace->energy;
+  if (force->pair && force->pair->tail_flag) {
+    double volume = domain->xprd * domain->yprd * domain->zprd;
+    dvalue += force->pair->etail / volume;
+  }
+
+  if (normflag) dvalue /= natoms;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_ebond()
+{
+  if (force->bond) {
+    double tmp = force->bond->energy;
+    MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_eangle()
+{
+  if (force->angle) {
+    double tmp = force->angle->energy;
+    MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_edihed()
+{
+  if (force->dihedral) {
+    double tmp = force->dihedral->energy;
+    MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_eimp()
+{
+  if (force->improper) {
+    double tmp = force->improper->energy;
+    MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_emol()
+{
+  double tmp = 0.0;
+  if (atom->molecular) {
+    if (force->bond) tmp += force->bond->energy;
+    if (force->angle) tmp += force->angle->energy;
+    if (force->dihedral) tmp += force->dihedral->energy;
+    if (force->improper) tmp += force->improper->energy;
+    MPI_Allreduce(&tmp,&dvalue,1,MPI_DOUBLE,MPI_SUM,world);
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_elong()
+{
+  if (force->kspace) {
+    dvalue = force->kspace->energy;
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_etail()
+{
+  if (force->pair && force->pair->tail_flag) {
+    double volume = domain->xprd * domain->yprd * domain->zprd;
+    dvalue = force->pair->etail / volume;
+    if (normflag) dvalue /= natoms;
+  } else dvalue = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1382,6 +1901,48 @@ void Thermo::compute_ylat()
 void Thermo::compute_zlat()
 {
   dvalue = domain->lattice->zlattice;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pxx()
+{
+  dvalue = pressure->vector[0];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pyy()
+{
+  dvalue = pressure->vector[1];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pzz()
+{
+  dvalue = pressure->vector[2];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pxy()
+{
+  dvalue = pressure->vector[3];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pxz()
+{
+  dvalue = pressure->vector[4];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Thermo::compute_pyz()
+{
+  dvalue = pressure->vector[5];
 }
 
 /* ---------------------------------------------------------------------- */

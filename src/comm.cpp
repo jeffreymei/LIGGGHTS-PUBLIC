@@ -1,52 +1,28 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
@@ -54,11 +30,11 @@
 ------------------------------------------------------------------------- */
 
 #include "lmptype.h"
-#include <mpi.h>
-#include <cmath>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "mpi.h"
+#include "math.h"
+#include "string.h"
+#include "stdio.h"
+#include "stdlib.h"
 #include "comm.h"
 #include "universe.h"
 #include "atom.h"
@@ -73,7 +49,6 @@
 #include "modify.h"
 #include "fix.h"
 #include "compute.h"
-#include "mpi_liggghts.h"
 #include "output.h"
 #include "dump.h"
 #include "procmap.h"
@@ -182,9 +157,6 @@ Comm::Comm(LAMMPS *lmp) : Pointers(lmp)
     maxsendlist[i] = BUFMIN;
     memory->create(sendlist[i],BUFMIN,"comm:sendlist[i]");
   }
-
-  exchangeEvents = false; 
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -460,13 +432,8 @@ void Comm::setup()
 
   for(int ifix = 0; ifix < nfix; ifix++)
   {
-      
-      if(!fix[ifix]->use_rad_for_cut_neigh_and_ghost())
-        continue;
-
       double cut_fix = fix[ifix]->extend_cut_ghost();
       cut = MAX(cut,cut_fix + neighbor->skin);
-      
   }
   
   if (triclinic == 0) {
@@ -937,9 +904,6 @@ void Comm::exchange()
     subhi = domain->subhi_lamda;
   }
 
-  //Record exchange events in advance if necessary
-  exchangeEventsRecorder();
-
   // loop over dimensions
 
   for (int dim = 0; dim < 3; dim++) {
@@ -1231,9 +1195,6 @@ void Comm::borders()
   // reset global->local map
 
   if (map_style) atom->map_set();
-
-  exchangeEventsCorrector();
-
 }
 
 /* ----------------------------------------------------------------------

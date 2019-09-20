@@ -1,44 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_TRACKING_MESH_I_H
@@ -55,6 +43,7 @@
     id_ (*this->prop().template addElementProperty< ScalarContainer<int> >("id","comm_exchange_borders"/*ID does never change*/,"frame_invariant","restart_yes")),
     lineNo_(this->prop().template addElementProperty< ScalarContainer<int> >("lineNo","comm_none"/*so deleting after setup does not interefere*/,"frame_invariant","restart_no")),
     mapTagMax_(0),
+    mapArray_(0),
     verbose_(false)
   {
   }
@@ -69,7 +58,7 @@
      delete &customValues_;
 
      // deallocate map memory if exists
-     if(!mapArray_.empty()) clearMap();
+     if(mapArray_) clearMap();
   }
 
   /* ----------------------------------------------------------------------
@@ -83,14 +72,14 @@
     
     if(MultiNodeMeshParallel<NUM_NODES>::addElement(nodeToAdd))
     {
-        // tracking mesh add one element, grow memory if necessary
-        customValues_.addZeroElement();
+        // tracking mesh add memory
+        
+        customValues_.grow(this->sizeLocal());
 
         // set ID for element
         // ID starts from 0
         id_(this->sizeLocal()-1) = this->sizeLocal()-1;
-        if(lineNo_)
-            (*lineNo_)(this->sizeLocal()-1) = lineNumb;
+        (*lineNo_)(this->sizeLocal()-1) = lineNumb;
 
         return true;
     }
@@ -167,7 +156,8 @@
   void TrackingMesh<NUM_NODES>::clearMap()
   {
       // deallocate old memory
-      mapArray_.clear();
+      this->memory->destroy(mapArray_);
+      mapArray_ = NULL;
   }
 
   template<int NUM_NODES>
@@ -176,18 +166,23 @@
       int nall = this->sizeLocal() + this->sizeGhost();
 
       // deallocate old memory if exists
-      if(!mapArray_.empty()) clearMap();
+      if(mapArray_) clearMap();
 
       // get max ID of all proc
       int idmax = id_.max(nall);
       MPI_Max_Scalar(idmax,mapTagMax_,this->world);
 
+      // alocate and initialize new array
+      // IDs start at 0, so have to use mapTagMax_+1
+      this->memory->create(mapArray_,mapTagMax_+1,"TrackingMesh:mapArray_");
+      for(int i = 0; i < mapTagMax_+1; i++)
+        mapArray_[i] = -1;
+
       // build map for owned and ghost particles
-      for (int i = 0; i < nall; i++)
+      for (int i = nall-1; i >= 0; i--)
       {
           
-          const int id = id_(i);
-          mapArray_[id].push_back(i);
+          mapArray_[id_(i)] = i;
       }
   }
 
@@ -232,38 +227,38 @@
   }
 
   template<int NUM_NODES>
-  int TrackingMesh<NUM_NODES>::pushElemListToBuffer(int n, int *list, int *wraplist, double *buf, int operation, std::list<std::string> * properties, double *dlo, double *dhi, bool scale,bool translate, bool rotate)
+  int TrackingMesh<NUM_NODES>::pushElemListToBuffer(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate)
   {
     int nsend = 0;
-    nsend += MultiNodeMeshParallel<NUM_NODES>::pushElemListToBuffer(n,list, wraplist, &buf[nsend],operation, properties, dlo, dhi, scale,translate,rotate);
-    nsend += customValues_.pushElemListToBuffer(n,list, wraplist, &buf[nsend],operation, properties, dlo, dhi, scale,translate,rotate);
+    nsend += MultiNodeMeshParallel<NUM_NODES>::pushElemListToBuffer(n,list,&buf[nsend],operation,scale,translate,rotate);
+    nsend += customValues_.pushElemListToBuffer(n,list,&buf[nsend],operation,scale,translate,rotate);
     return nsend;
   }
 
   template<int NUM_NODES>
-  int TrackingMesh<NUM_NODES>::popElemListFromBuffer(int first, int n,double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate)
+  int TrackingMesh<NUM_NODES>::popElemListFromBuffer(int first, int n,double *buf, int operation,bool scale,bool translate, bool rotate)
   {
     int nrecv = 0;
-    nrecv += MultiNodeMeshParallel<NUM_NODES>::popElemListFromBuffer(first,n,&buf[nrecv],operation, properties, scale,translate,rotate);
-    nrecv += customValues_.popElemListFromBuffer(first,n,&buf[nrecv],operation, properties, scale,translate,rotate);
+    nrecv += MultiNodeMeshParallel<NUM_NODES>::popElemListFromBuffer(first,n,&buf[nrecv],operation,scale,translate,rotate);
+    nrecv += customValues_.popElemListFromBuffer(first,n,&buf[nrecv],operation,scale,translate,rotate);
     return nrecv;
   }
 
   template<int NUM_NODES>
-  int TrackingMesh<NUM_NODES>::pushElemListToBufferReverse(int first, int n,double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate)
+  int TrackingMesh<NUM_NODES>::pushElemListToBufferReverse(int first, int n,double *buf, int operation,bool scale,bool translate, bool rotate)
   {
     int nrecv = 0;
-    nrecv += MultiNodeMeshParallel<NUM_NODES>::pushElemListToBufferReverse(first,n,&buf[nrecv],operation, properties, scale,translate,rotate);
-    nrecv += customValues_.pushElemListToBufferReverse(first,n,&buf[nrecv],operation, properties, scale,translate,rotate);
+    nrecv += MultiNodeMeshParallel<NUM_NODES>::pushElemListToBufferReverse(first,n,&buf[nrecv],operation,scale,translate,rotate);
+    nrecv += customValues_.pushElemListToBufferReverse(first,n,&buf[nrecv],operation,scale,translate,rotate);
     return nrecv;
   }
 
   template<int NUM_NODES>
-  int TrackingMesh<NUM_NODES>::popElemListFromBufferReverse(int n, int *list, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate)
+  int TrackingMesh<NUM_NODES>::popElemListFromBufferReverse(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate)
   {
     int nsend = 0;
-    nsend += MultiNodeMeshParallel<NUM_NODES>::popElemListFromBufferReverse(n,list,&buf[nsend],operation, properties, scale,translate,rotate);
-    nsend += customValues_.popElemListFromBufferReverse(n,list,&buf[nsend],operation, properties, scale,translate,rotate);
+    nsend += MultiNodeMeshParallel<NUM_NODES>::popElemListFromBufferReverse(n,list,&buf[nsend],operation,scale,translate,rotate);
+    nsend += customValues_.popElemListFromBufferReverse(n,list,&buf[nsend],operation,scale,translate,rotate);
     return nsend;
   }
 
@@ -272,12 +267,12 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  int TrackingMesh<NUM_NODES>::elemBufSize(int operation, std::list<std::string> * properties, bool scale,bool translate,bool rotate)
+  int TrackingMesh<NUM_NODES>::elemBufSize(int operation,bool scale,bool translate,bool rotate)
   {
     int buf_size = 0;
-    buf_size += MultiNodeMeshParallel<NUM_NODES>::elemBufSize(operation, properties, scale,translate,rotate);
+    buf_size += MultiNodeMeshParallel<NUM_NODES>::elemBufSize(operation,scale,translate,rotate);
     
-    buf_size += customValues_.elemBufSize(operation, properties, scale,translate,rotate);
+    buf_size += customValues_.elemBufSize(operation,scale,translate,rotate);
     
     return buf_size;
   }
@@ -335,7 +330,7 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  void TrackingMesh<NUM_NODES>::move(const double * const vecTotal, const double * const vecIncremental)
+  void TrackingMesh<NUM_NODES>::move(double *vecTotal, double *vecIncremental)
   {
     
     MultiNodeMesh<NUM_NODES>::move(vecTotal, vecIncremental);
@@ -343,7 +338,7 @@
   }
 
   template<int NUM_NODES>
-  void TrackingMesh<NUM_NODES>::move(const double * const vecIncremental)
+  void TrackingMesh<NUM_NODES>::move(double *vecIncremental)
   {
     
     MultiNodeMesh<NUM_NODES>::move(vecIncremental);
@@ -351,14 +346,14 @@
   }
 
   template<int NUM_NODES>
-  void TrackingMesh<NUM_NODES>::moveElement(const int i, const double * const vecIncremental)
+  void TrackingMesh<NUM_NODES>::moveElement(int i,double *vecIncremental)
   {
     MultiNodeMesh<NUM_NODES>::moveElement(i,vecIncremental);
     customValues_.moveElement(i,vecIncremental);
   }
 
   template<int NUM_NODES>
-  void TrackingMesh<NUM_NODES>::rotate(const double * const totalQ, const double * const dQ, const double * const origin)
+  void TrackingMesh<NUM_NODES>::rotate(double *totalQ, double *dQ,double *origin)
   {
     double negorigin[3];
     bool trans = vectorMag3DSquared(origin) > 0.;
@@ -372,7 +367,7 @@
   }
 
   template<int NUM_NODES>
-  void TrackingMesh<NUM_NODES>::rotate(const double * const dQ, const double * const origin)
+  void TrackingMesh<NUM_NODES>::rotate(double *dQ,double *origin)
   {
     double negorigin[3];
     bool trans = vectorMag3DSquared(origin) > 0.;

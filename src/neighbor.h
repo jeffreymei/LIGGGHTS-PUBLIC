@@ -1,59 +1,35 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_NEIGHBOR_H
 #define LMP_NEIGHBOR_H
 
 #include "pointers.h"
-#include <algorithm>
+#include <algorithm> 
 
 namespace LAMMPS_NS {
 
@@ -70,7 +46,7 @@ class Neighbor : protected Pointers {
   int style;                       // 0,1,2 = nsq, bin, multi
   int every;                       // build every this many steps
   int delay;                       // delay build for this many steps
-  double contactDistanceFactor;    // contact distance factor used to compute non-touch contact (forces without radius overlap)
+  double contactDistanceFactor;    // contact distance factor to be used for non-contact touch (no radius overlap)
   int dist_check;                  // 0 = always build, 1 = only if 1/2 dist
   int ago;                         // how many steps ago neighboring occurred
   int pgsize;                      // size of neighbor page
@@ -107,7 +83,7 @@ class Neighbor : protected Pointers {
 
   int nbondlist;                   // list of bonds to compute
   int **bondlist;                  
-  double **bondhistlist;
+  double **bondhistlist;           
   int nanglelist;                  // list of angles to compute
   int **anglelist;
   int ndihedrallist;               // list of dihedrals to compute
@@ -118,28 +94,24 @@ class Neighbor : protected Pointers {
   Neighbor(class LAMMPS *);
   virtual ~Neighbor();
   virtual void init();
-  int request(void *);                          // another class requests a neighbor list
-  void print_lists_of_lists();                  // debug print out
-  int decide();                                 // decide whether to build or not
-  virtual int check_distance();                 // check max distance moved since last build
-  void setup_bins();                            // setup bins based on box and cutoff
-  virtual void build(int topoflag=1);           // create all neighbor lists (pair,bond)
-  virtual void build_topology();                // create all topology neighbor lists
-  void build_one(int);                          // create a single neighbor list
-  void set(int narg, char **arg, bool auto_set_bin = false); // set neighbor style and skin distance
-  void modify_params(int, char**);              // modify parameters that control builds
-  void modify_params_restricted(int, char**);   // modify parameters that control builds (restricted version for neigh_settings)
+  int request(void *);              // another class requests a neighbor list
+  void print_lists_of_lists();      // debug print out
+  int decide();                     // decide whether to build or not
+  virtual int check_distance();     // check max distance moved since last build
+  void setup_bins();                // setup bins based on box and cutoff
+  virtual void build(int topoflag=1);  // create all neighbor lists (pair,bond)
+  virtual void build_topology();    // create all topology neighbor lists
+  void build_one(int);              // create a single neighbor list
+  void set(int, char **);           // set neighbor style and skin distance
+  void modify_params(int, char**);  // modify parameters that control builds
   bigint memory_usage();
   int exclude_setting();
-  int neigh_once(){return build_once;}
-  int n_neighs();
-  int n_blist() {return nblist;}
+  int neigh_once(){return build_once;} 
+  int n_neighs(); 
+  int n_blist() {return nblist;} 
 
   void multi_levels(double &, double &, int &);
   int multi_levels();
-
-  void register_contact_dist_factor(double cdf)
-  { contactDistanceFactor = std::max(contactDistanceFactor,cdf); }
 
  protected:
   int me,nprocs;
@@ -384,6 +356,9 @@ class Neighbor : protected Pointers {
     }
     return 0;
   };
+
+  void register_contact_dist_factor(double cdf)
+  { contactDistanceFactor = std::max(contactDistanceFactor,cdf); }
 };
 
 }

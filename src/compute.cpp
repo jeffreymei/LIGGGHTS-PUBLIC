@@ -1,52 +1,20 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #include "lmptype.h"
-#include <mpi.h>
-#include <stdlib.h>
-#include <string.h>
+#include "mpi.h"
+#include "stdlib.h"
+#include "string.h"
 #include "ctype.h"
 #include "compute.h"
 #include "atom.h"
@@ -65,9 +33,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-Compute::Compute(LAMMPS *lmp, int &iarg, int narg, char ** arg) :
-    Pointers(lmp),
-    update_on_run_end_(false)
+Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 {
   if (narg < 3) error->all(FLERR,"Illegal compute command");
 
@@ -91,22 +57,6 @@ Compute::Compute(LAMMPS *lmp, int &iarg, int narg, char ** arg) :
   style = new char[n];
   strcpy(style,arg[2]);
 
-  iarg = 3;
-
-  if (narg >= 4)
-  {
-    if (strcmp(arg[iarg], "update_on_run_end") == 0)
-    {
-        if (narg < 5)
-            error->all(FLERR, "Not enough arguments for keyword 'update_on_run_end'");
-        if (strcmp(arg[iarg+1], "yes") == 0)
-            update_on_run_end_ = true;
-        else if (strcmp(arg[iarg+1], "no"))
-            error->all(FLERR, "Value for keyword 'update_on_run_end' must be either 'yes' or 'no'");
-        iarg += 2;
-    }
-  }
-
   // set child class defaults
 
   scalar_flag = vector_flag = array_flag = 0;
@@ -127,7 +77,6 @@ Compute::Compute(LAMMPS *lmp, int &iarg, int narg, char ** arg) :
 
   extra_dof = domain->dimension;
   dynamic = 0;
-  dynamic_group_allow = 1;
 
   // setup list of timesteps
 
@@ -157,8 +106,6 @@ Compute::~Compute()
 void Compute::modify_params(int narg, char **arg)
 {
   if (narg == 0) error->all(FLERR,"Illegal compute_modify command");
-  if (!lmp->wb && strcmp(id, "thermo_temp") == 0 && comm->me == 0)
-    error->warning(FLERR,"Changing thermo_temp compute object. This object is deprecated and will be removed in the future.");
 
   int iarg = 0;
   while (iarg < narg) {

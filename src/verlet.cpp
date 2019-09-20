@@ -1,57 +1,31 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <string.h>
-#include <stdio.h>
-#include <time.h>
+#include "string.h"
 #include "verlet.h"
 #include "neighbor.h"
 #include "domain.h"
@@ -72,7 +46,6 @@
 #include "timer.h"
 #include "memory.h"
 #include "error.h"
-#include "signal_handling.h"
 
 using namespace LAMMPS_NS;
 
@@ -133,11 +106,7 @@ void Verlet::init()
 
 void Verlet::setup()
 {
-  time_t curtime;
-  time(&curtime);
-
-  if (comm->me == 0 && screen) fprintf(screen,"Setting up run at %s\n",ctime(&curtime));
-  if (comm->me == 0 && logfile) fprintf(logfile,"Setting up run at %s\n",ctime(&curtime));
+  if (comm->me == 0 && screen) fprintf(screen,"Setting up run ...\n");
 
   update->setupflag = 1;
 
@@ -266,14 +235,12 @@ void Verlet::run(int n)
   bigint ntimestep;
   int nflag,sortflag;
 
-  const int n_pre_initial_integrate = modify->n_pre_initial_integrate;
-  const int n_post_integrate = modify->n_post_integrate;
-  const int n_pre_exchange = modify->n_pre_exchange;
-  const int n_pre_neighbor = modify->n_pre_neighbor;
-  const int n_pre_force = modify->n_pre_force;
-  const int n_post_force = modify->n_post_force;
-  const int n_pre_final_integrate = modify->n_pre_final_integrate;
-  const int n_end_of_step = modify->n_end_of_step;
+  int n_post_integrate = modify->n_post_integrate;
+  int n_pre_exchange = modify->n_pre_exchange;
+  int n_pre_neighbor = modify->n_pre_neighbor;
+  int n_pre_force = modify->n_pre_force;
+  int n_post_force = modify->n_post_force;
+  int n_end_of_step = modify->n_end_of_step;
 
   if (atom->sortfreq > 0) sortflag = 1;
   else sortflag = 0;
@@ -283,10 +250,6 @@ void Verlet::run(int n)
     ntimestep = ++update->ntimestep;
     
     ev_set(ntimestep);
-
-    // pre-integration step
-
-    if (n_pre_initial_integrate) modify->pre_initial_integrate();
 
     // initial time integration
 
@@ -368,8 +331,6 @@ void Verlet::run(int n)
     
     if (n_post_force) modify->post_force(vflag);
     
-    if (n_pre_final_integrate) modify->pre_final_integrate();
-    
     modify->final_integrate();
     
     if (n_end_of_step) modify->end_of_step();
@@ -382,8 +343,6 @@ void Verlet::run(int n)
       timer->stamp(TIME_OUTPUT);
     }
     
-    if (SignalHandler::request_quit && !SignalHandler::request_write_restart)
-        break;
   }
 }
 

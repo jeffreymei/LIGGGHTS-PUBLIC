@@ -1,43 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2015 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -49,7 +32,6 @@ FixStyle(insert/stream,FixInsertStream)
 #ifndef LMP_FIX_INSERT_STREAM_H
 #define LMP_FIX_INSERT_STREAM_H
 
-#include "bounding_box.h"
 #include "fix_insert.h"
 #include "vector_liggghts.h"
 
@@ -69,7 +51,7 @@ class FixInsertStream : public FixInsert {
   virtual void setup_pre_exchange();
   virtual void end_of_step();
 
-  virtual void init_defaults();
+  void init_defaults();
 
   virtual void reset_timestep(bigint newstep,bigint oldstep);
 
@@ -90,20 +72,13 @@ class FixInsertStream : public FixInsert {
   void vel_normal(double *vn)
   { return vectorCopy3D(v_normal,vn); }
 
-  bool templates_saved()
-  { return save_template_; }
-
-  FixPropertyAtom * get_fix_template()
-  { return fix_template_; }
-
  protected:
 
   virtual void calc_insertion_properties();
 
-  bool pre_insert();
+  void pre_insert();
 
   int is_nearby(int);
-  virtual BoundingBox getBoundingBox();
   inline void generate_random(double *pos, double rad);
   inline void generate_random_global(double *pos);
 
@@ -112,7 +87,7 @@ class FixInsertStream : public FixInsert {
                 double &mass_inserted_this);
 
   double insertion_fraction();
-  virtual void calc_ins_fraction();
+  void calc_ins_fraction();
   virtual void finalize_insertion(int);
 
   virtual void reset_releasedata(bigint newstep,bigint oldstep);
@@ -129,7 +104,7 @@ class FixInsertStream : public FixInsert {
   double p_ref[3];         // reference point on face
   int face_style;
   double v_normal[3];      // insertion velocity projected on face
-  double ins_fraction;     
+  double ins_fraction;
   bool do_ins_fraction_calc;
 
   // mesh face and bounding box of extruded face
@@ -147,16 +122,8 @@ class FixInsertStream : public FixInsert {
 
  private:
 
-  void recalc_release_restart();
-
   class FixPropertyAtomTracerStream **tracer;
   int ntracer;
-
-  bool recalc_release_ms;
-  double dt_ratio;
-
-  bool save_template_;
-  FixPropertyAtom *fix_template_;
 };
 
 }

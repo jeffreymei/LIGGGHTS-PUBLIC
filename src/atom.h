@@ -1,46 +1,14 @@
-/* ----------------------------------------------------------------------
-    This is the
+/* -*- c++ -*- ----------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_ATOM_H
@@ -97,30 +65,6 @@ class Atom : protected Pointers {
   double **vest;
   double *cv;
 
-//Superquadric bonus-----------------------------------
-  double **shape, **blockiness; //half axes and blockiness parameters
-  double **inertia, *volume, *area; //components Ix, Iy, Iz
-  double **quaternion; //quaternion of current orientation
-//------------------------------------------------------
-
-  // USR-SMD
-  double *contact_radius;
-  double **smd_data_9;
-  double **smd_stress;
-  double *eff_plastic_strain;
-  double *eff_plastic_strain_rate;
-  double *damage;
-  int smd_flag;
-  int contact_radius_flag;
-  int smd_data_9_flag;
-  int smd_stress_flag;
-  int x0_flag;
-  int eff_plastic_strain_flag;
-  int eff_plastic_strain_rate_flag;
-  int damage_flag;
-
-  int *shapetype;
-
   int **nspecial;               // 0,1,2 = cummulative # of 1-2,1-3,1-4 neighs
   int **special;                // IDs of 1-2,1-3,1-4 neighs of each atom
   int maxspecial;               // special[nlocal][maxspecial]
@@ -158,7 +102,6 @@ class Atom : protected Pointers {
   // customize by adding new flag
 
   int sphere_flag,ellipsoid_flag,line_flag,tri_flag,body_flag;
-  int superquadric_flag;
   int peri_flag,electron_flag;
   int ecp_flag;
   int wavepacket_flag,sph_flag;
@@ -172,7 +115,11 @@ class Atom : protected Pointers {
   int p_flag;  
   int n_bondhist; 
   int radvary_flag; 
-  int shapetype_flag; 
+
+  // used by USER-SEAICE:
+  
+  double *thickness,**tilt;
+  int disk_flag,thickness_flag,tilt_flag;
 
   // extra peratom info in restart file destined for fix & diag
 
@@ -249,7 +196,6 @@ class Atom : protected Pointers {
   void add_callback(int);
   void delete_callback(const char *, int);
   void update_callback(int);
-  bool has_callback(const char *, int);
 
   int find_custom(char *, int &);
   int add_custom(char *, int);
@@ -267,9 +213,6 @@ class Atom : protected Pointers {
 
   bigint memory_usage();
   int memcheck(const char *);
-
-  inline class Properties* get_properties() 
-  { return properties; }
 
   // functions for global to local ID mapping
   // map lookup function inlined for efficiency
@@ -325,8 +268,6 @@ class Atom : protected Pointers {
 
   void setup_sort_bins();
   int next_prime(int);
-
-  class Properties *properties;   
 };
 
 }

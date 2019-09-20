@@ -1,55 +1,23 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
    Contributing authors: Paul Crozier (SNL), Jeff Greathouse (SNL)
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
-#include <cmath>
-#include <stdlib.h>
+#include "mpi.h"
+#include "math.h"
+#include "stdlib.h"
 #include "compute_rdf.h"
 #include "atom.h"
 #include "update.h"
@@ -69,18 +37,18 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-ComputeRDF::ComputeRDF(LAMMPS *lmp, int &iarg, int narg, char **arg) :
-  Compute(lmp, iarg, narg, arg)
+ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
+  Compute(lmp, narg, arg)
 {
-  if (narg < iarg+1 || (narg-(iarg+1)) % 2) error->all(FLERR,"Illegal compute rdf command");
+  if (narg < 4 || (narg-4) % 2) error->all(FLERR,"Illegal compute rdf command");
 
   array_flag = 1;
   extarray = 0;
 
-  nbin = force->inumeric(FLERR,arg[iarg++]);
+  nbin = force->inumeric(FLERR,arg[3]);
   if (nbin < 1) error->all(FLERR,"Illegal compute rdf command");
-  if (narg == iarg) npairs = 1;
-  else npairs = (narg-iarg)/2;
+  if (narg == 4) npairs = 1;
+  else npairs = (narg-4)/2;
 
   size_array_rows = nbin;
   size_array_cols = 1 + 2*npairs;
@@ -93,13 +61,14 @@ ComputeRDF::ComputeRDF(LAMMPS *lmp, int &iarg, int narg, char **arg) :
   jlo = new int[npairs];
   jhi = new int[npairs];
 
-  if (narg == iarg) {
+  if (narg == 4) {
     ilo[0] = 1; ihi[0] = ntypes;
     jlo[0] = 1; jhi[0] = ntypes;
     npairs = 1;
 
   } else {
     npairs = 0;
+    int iarg = 4;
     while (iarg < narg) {
       force->bounds(arg[iarg],atom->ntypes,ilo[npairs],ihi[npairs]);
       force->bounds(arg[iarg+1],atom->ntypes,jlo[npairs],jhi[npairs]);

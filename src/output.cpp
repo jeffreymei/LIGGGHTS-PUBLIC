@@ -1,51 +1,19 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "output.h"
 #include "style_dump.h"
 #include "atom.h"
@@ -65,7 +33,6 @@
 #include "accelerator_cuda.h"
 #include "memory.h"
 #include "error.h"
-#include "signal_handling.h"
 
 using namespace LAMMPS_NS;
 
@@ -75,42 +42,31 @@ using namespace LAMMPS_NS;
    initialize all output
 ------------------------------------------------------------------------- */
 
-Output::Output(LAMMPS *lmp) :
-    Pointers(lmp),
-    restart_flag(false),
-    restart_flag_single(false),
-    restart_flag_double(false),
-    next_restart(0),
-    next_restart_single(0),
-    next_restart_double(0),
-    restart_every_single(0),
-    restart_every_double(0),
-    last_restart(0),
-    restart_toggle(0),
-    var_restart_single(NULL),
-    var_restart_double(NULL),
-    ivar_restart_single(0),
-    ivar_restart_double(0),
-    restart1(NULL),
-    restart2a(NULL),
-    restart2b(NULL),
-    restart(NULL)
+Output::Output(LAMMPS *lmp) : Pointers(lmp)
 {
+  // create default computes for temp,pressure,pe
+
   char **newarg = new char*[4];
-  // create a default compute that calculates the temperature of the system
-  // NOTE: This compute is deprecated and will be removed in the future
   newarg[0] = (char *) "thermo_temp";
   newarg[1] = (char *) "all";
   newarg[2] = (char *) "temp";
   modify->add_compute(3,newarg,lmp->suffix);
-  // create a default compute that calculates the kinetic energy of the system
-  newarg[0] = (char *) "thermo_kin_eng";
+
+  newarg[0] = (char *) "thermo_press";
   newarg[1] = (char *) "all";
-  newarg[2] = (char *) "ke";
+  newarg[2] = (char *) "pressure";
+  newarg[3] = (char *) "thermo_temp";
+  modify->add_compute(4,newarg,lmp->suffix);
+
+  newarg[0] = (char *) "thermo_pe";
+  newarg[1] = (char *) "all";
+  newarg[2] = (char *) "pe";
   modify->add_compute(3,newarg,lmp->suffix);
+
   delete [] newarg;
 
   // create default Thermo class
+
   newarg = new char*[1];
   newarg[0] = (char *) "one";
   thermo = new Thermo(lmp,1,newarg);
@@ -127,6 +83,13 @@ Output::Output(LAMMPS *lmp) :
   var_dump = NULL;
   ivar_dump = NULL;
   dump = NULL;
+
+  restart_flag = restart_flag_single = restart_flag_double = 0;
+  restart_every_single = restart_every_double = 0;
+  last_restart = -1;
+  restart1 = restart2a = restart2b = NULL;
+  var_restart_single = var_restart_double = NULL;
+  restart = NULL;
 }
 
 /* ----------------------------------------------------------------------
@@ -135,27 +98,24 @@ Output::Output(LAMMPS *lmp) :
 
 Output::~Output()
 {
-    if (thermo)
-        delete thermo;
-    delete [] var_thermo;
+  if (thermo) delete thermo;
+  delete [] var_thermo;
 
-    memory->destroy(every_dump);
-    memory->destroy(next_dump);
-    memory->destroy(last_dump);
-    for (int i = 0; i < ndump; i++)
-        delete [] var_dump[i];
-    memory->sfree(var_dump);
-    memory->destroy(ivar_dump);
-    for (int i = 0; i < ndump; i++)
-        delete dump[i];
-    memory->sfree(dump);
+  memory->destroy(every_dump);
+  memory->destroy(next_dump);
+  memory->destroy(last_dump);
+  for (int i = 0; i < ndump; i++) delete [] var_dump[i];
+  memory->sfree(var_dump);
+  memory->destroy(ivar_dump);
+  for (int i = 0; i < ndump; i++) delete dump[i];
+  memory->sfree(dump);
 
-    delete [] restart1;
-    delete [] restart2a;
-    delete [] restart2b;
-    delete [] var_restart_single;
-    delete [] var_restart_double;
-    delete restart;
+  delete [] restart1;
+  delete [] restart2a;
+  delete [] restart2b;
+  delete [] var_restart_single;
+  delete [] var_restart_double;
+  delete restart;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -409,23 +369,6 @@ void Output::write(bigint ntimestep)
     }
     last_restart = ntimestep;
     next_restart = MIN(next_restart_single,next_restart_double);
-
-    if (SignalHandler::request_write_restart) {
-        char *file = new char[24 + 16 + 5];
-        sprintf(file,"restart_forced_liggghts_" BIGINT_FORMAT ".data",ntimestep);
-        bool has_restart = restart != NULL;
-        if (!has_restart)
-            restart = new WriteRestart(lmp);
-        restart->write(file);
-        if (!has_restart)
-        {
-            delete restart;
-            restart = NULL;
-        }
-        delete [] file;
-        SignalHandler::request_write_restart = false;
-        error->warning(FLERR, "Forced restart written");
-    }
   }
 
   // insure next_thermo forces output on last step of run
@@ -433,9 +376,6 @@ void Output::write(bigint ntimestep)
 
   if (next_thermo == ntimestep) {
     modify->clearstep_compute();
-    // check all computes and those with update_on_run_end activated will be updated
-    if (ntimestep == update->laststep)
-        modify->update_computes_on_run_end();
     if (last_thermo != ntimestep) thermo->compute(1);
     last_thermo = ntimestep;
     if (var_thermo) {
@@ -604,7 +544,7 @@ void Output::add_dump(int narg, char **arg)
       error->all(FLERR,"Reuse of dump ID");
   int igroup = group->find(arg[1]);
   if (igroup == -1) error->all(FLERR,"Could not find dump group ID");
-  if (force->inumeric(FLERR,arg[3]) <= 0)
+  if (force->inumeric(FLERR,arg[3]) <= 0) 
     error->all(FLERR,"Invalid dump frequency");
 
   // extend Dump list if necessary
@@ -721,7 +661,7 @@ void Output::create_thermo(int narg, char **arg)
 
   // warn if previous thermo had been modified via thermo_modify command
 
-  if (thermo->modified && comm->me == 0 && !lmp->wb)
+  if (thermo->modified && comm->me == 0)
     error->warning(FLERR,"New thermo_style command, "
                    "previous thermo_modify settings will be lost");
 
@@ -750,7 +690,7 @@ void Output::create_restart(int narg, char **arg)
   if (!varflag && every == 0) {
     if (narg != 1) error->all(FLERR,"Illegal restart command");
 
-    restart_flag = restart_flag_single = restart_flag_double = false;
+    restart_flag = restart_flag_single = restart_flag_double = 0;
     last_restart = -1;
 
     delete restart;
@@ -769,7 +709,7 @@ void Output::create_restart(int narg, char **arg)
   if (narg != 2 && narg != 3) error->all(FLERR,"Illegal restart command");
 
   if (narg == 2) {
-    restart_flag = restart_flag_single = true;
+    restart_flag = restart_flag_single = 1;
 
     if (varflag) {
       delete [] var_restart_single;
@@ -786,7 +726,7 @@ void Output::create_restart(int narg, char **arg)
   }
 
   if (narg == 3) {
-    restart_flag = restart_flag_double = true;
+    restart_flag = restart_flag_double = 1;
 
     if (varflag) {
       delete [] var_restart_double;
@@ -832,42 +772,4 @@ void Output::memory_usage()
     if (logfile)
       fprintf(logfile,"Memory usage per processor = %g Mbytes\n",mbytes);
   }
-}
-
-/* ----------------------------------------------------------------------
-   identifies when the next restart will be written
-   also handles signals to force writing of a restart
-   this function is called by Neighbor::decide
-------------------------------------------------------------------------- */
-
-bool Output::restart_requested(const bigint ntimestep)
-{
-    if (SignalHandler::request_write_restart || SignalHandler::request_quit)
-    {
-        // we have something to write now
-        next = ntimestep;
-        // if quit is request write thermo
-        if (SignalHandler::request_quit)
-            next_thermo = ntimestep;
-        // if restart writing is request do it
-        if (SignalHandler::request_write_restart)
-            next_restart = ntimestep;
-    }
-    return next_restart == ntimestep;
-}
-
-/* ----------------------------------------------------------------------
-   request a restart for a certain timestep
-------------------------------------------------------------------------- */
-
-void Output::request_restart(const bigint ntimestep)
-{
-    if (restart_flag)
-    {
-        next_restart = ntimestep;
-        if (restart_every_single)
-            next_restart_single = ntimestep;
-        if (restart_every_double)
-            next_restart_double = ntimestep;
-    }
 }

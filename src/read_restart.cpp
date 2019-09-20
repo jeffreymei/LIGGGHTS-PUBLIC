@@ -1,53 +1,20 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #include "lmptype.h"
-#include <mpi.h>
-#include <string.h>
-#include <string>
-#include <stdlib.h>
+#include "mpi.h"
+#include "string.h"
+#include "stdlib.h"
 //#include "sys/types.h"
 #include "dirent.h"
 #include "read_restart.h"
@@ -96,11 +63,7 @@ enum{PAIR,BOND,ANGLE,DIHEDRAL,IMPROPER};
 
 /* ---------------------------------------------------------------------- */
 
-ReadRestart::ReadRestart(LAMMPS *lmp) :
-    Pointers(lmp),
-    restart_major(0),
-    restart_minor(0)
-{}
+ReadRestart::ReadRestart(LAMMPS *lmp) : Pointers(lmp) {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -148,7 +111,7 @@ void ReadRestart::command(int narg, char **arg)
     } else hfile = file;
     fp = fopen(hfile,"rb");
     if (fp == NULL) {
-      char str[512];
+      char str[128];
       sprintf(str,"Cannot open restart file %s",hfile);
       error->one(FLERR,str);
     }
@@ -264,7 +227,7 @@ void ReadRestart::command(int narg, char **arg)
       *ptr = '%';
       fp = fopen(perproc,"rb");
       if (fp == NULL) {
-        char str[512];
+        char str[128];
         sprintf(str,"Cannot open restart file %s",perproc);
         error->one(FLERR,str);
       }
@@ -509,26 +472,6 @@ void ReadRestart::header()
         if (screen) fprintf(screen,"   --> restart file = %s\n   --> LIGGGHTS = %s\n", 
                             version,universe->version);
       }
-        // parse version number
-        // version format is:
-        // Version LIGGGHTS-REPOSITORY-NAME MAJOR.MINOR.[....]
-        // MAJOR and MINOR are integers
-        std::string ver = std::string(version);
-        std::size_t space1 = ver.find(' ');
-        std::size_t space2 = ver.find(' ', space1+1);
-        std::size_t dot1 = ver.find('.', space2+1);
-        std::size_t dot2 = ver.find('.', dot1+1);
-        if (space1 != std::string::npos &&
-            space2 != std::string::npos &&
-            dot1 != std::string::npos &&
-            dot2 != std::string::npos)
-        {
-            std::string ver_major = ver.substr(space2+1, dot1-space2-1);
-            std::string ver_minor = ver.substr(dot1+1, dot2-dot1-1);
-            restart_major = atoi(ver_major.c_str());
-            restart_minor = atoi(ver_minor.c_str());
-            printf("version %d %d\n", restart_major, restart_minor);
-        }
       delete [] version;
 
       // check lmptype.h sizes, error if different
@@ -800,7 +743,7 @@ void ReadRestart::force_fields()
 
       force->create_pair_from_restart(fp, style);
       delete [] style;
-      if (force->pair->restartinfo) force->pair->read_restart(fp, restart_major, restart_minor);
+      if (force->pair->restartinfo) force->pair->read_restart(fp);
       else {
         delete force->pair;
         force->pair = NULL;

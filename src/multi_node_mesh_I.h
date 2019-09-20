@@ -1,46 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_MULTI_NODE_MESH_I_H
@@ -58,27 +44,16 @@
     nodesLastRe_("nodesLastRe"),
     center_("center"),
     rBound_("rBound"),
-    random_(new RanPark(lmp,"179424799")), // big prime #
+    random_(new RanPark(lmp,179424799)), // big prime #
     mesh_id_(0),
     precision_(EPSILON_PRECISION),
-    min_feature_length_(-1.),
-    element_exclusion_list_(0),
     autoRemoveDuplicates_(false),
     nMove_(0),
     nScale_(0),
     nTranslate_(0),
     nRotate_(0),
-    store_vel(0),
-    store_omega(0),
-    step_store_vel(0),
-    step_store_omega(0),
     stepLastReset_(-1)
   {
-    vectorZeroize3D(global_vel);
-    quatIdentity4D(global_quaternion);
-    quatIdentity4D(prev_quaternion);
-    center_.setWrapPeriodic(true);
-    node_.setWrapPeriodic(true);
   }
 
   /* ----------------------------------------------------------------------
@@ -113,18 +88,6 @@
   }
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::setMinFeatureLength(double _min_feature_length)
-  {
-      min_feature_length_ = _min_feature_length;
-  }
-
-  template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::setElementExclusionList(FILE *_file)
-  {
-      element_exclusion_list_ = _file;
-  }
-
-  template<int NUM_NODES>
   void MultiNodeMesh<NUM_NODES>::autoRemoveDuplicates()
   {
       autoRemoveDuplicates_ = true;
@@ -140,10 +103,6 @@
   {
     
     double avg[3];
-
-    if(nodesAreEqual(nodeToAdd[0],nodeToAdd[1]) || nodesAreEqual(nodeToAdd[1],nodeToAdd[2]) ||
-       nodesAreEqual(nodeToAdd[0],nodeToAdd[2]) )
-       return false;
 
     // add node
     node_.add(nodeToAdd);
@@ -166,7 +125,7 @@
     for(int i = 0; i < NUM_NODES; i++)
     {
         vectorSubtract3D(center_(n),node_(n)[i],vec);
-        rb = std::max(rb,vectorMag3D(vec));
+        rb = MathExtraLiggghts::max(rb,vectorMag3D(vec));
     }
     rBound_.add(rb);
 
@@ -180,7 +139,6 @@
                 
                 node_.del(n);
                 center_.del(n);
-                rBound_.del(n);
                 return false;
             }
         }
@@ -373,7 +331,6 @@
             error->one(FLERR,"Illegal situation in MultiNodeMesh<NUM_NODES>::registerMove");
 
           node_orig_ = new MultiVectorContainer<double,NUM_NODES,3>("node_orig");
-          node_orig_->setWrapPeriodic(true);
           for(int i = 0; i < nall; i++)
           {
             for(int j = 0; j < NUM_NODES; j++)
@@ -460,14 +417,14 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::move(const double * const vecTotal, const double * const vecIncremental)
+  void MultiNodeMesh<NUM_NODES>::move(double *vecTotal, double *vecIncremental)
   {
     if(!isTranslating())
         this->error->all(FLERR,"Illegal call, need to register movement first");
 
-    const int n = sizeLocal() + sizeGhost();
-
     resetToOrig();
+
+    int n = sizeLocal() + sizeGhost();
 
     for(int i = 0; i < n; i++)
     {
@@ -481,16 +438,6 @@
         vectorScalarDiv3D(center_(i),static_cast<double>(NUM_NODES));
     }
 
-    if (store_vel)
-    {
-        if (step_store_vel != update->ntimestep)
-        {
-            step_store_vel = update->ntimestep;
-            vectorZeroize3D(global_vel);
-        }
-        vectorAddMultiple3D(global_vel, 1.0/update->dt, vecIncremental, global_vel);
-    }
-
     updateGlobalBoundingBox();
   }
 
@@ -499,7 +446,7 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::move(const double * const vecIncremental)
+  void MultiNodeMesh<NUM_NODES>::move(double *vecIncremental)
   {
     
     int n = sizeLocal() + sizeGhost();
@@ -512,16 +459,6 @@
         vectorAdd3D(center_(i),vecIncremental,center_(i));
     }
 
-    if (store_vel)
-    {
-        if (step_store_vel != update->ntimestep)
-        {
-            step_store_vel = update->ntimestep;
-            vectorZeroize3D(global_vel);
-        }
-        vectorAddMultiple3D(global_vel, 1.0/update->dt, vecIncremental, global_vel);
-    }
-
     updateGlobalBoundingBox();
   }
   /* ----------------------------------------------------------------------
@@ -529,7 +466,7 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::moveElement(const int i, const double * const vecIncremental)
+  void MultiNodeMesh<NUM_NODES>::moveElement(int i,double *vecIncremental)
   {
     for(int j = 0; j < NUM_NODES; j++)
             vectorAdd3D(node_(i)[j],vecIncremental,node_(i)[j]);
@@ -545,7 +482,7 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::rotate(const double totalAngle, const double dAngle, const double * const axis, const double * const p)
+  void MultiNodeMesh<NUM_NODES>::rotate(double totalAngle, double dAngle, double *axis, double *p)
   {
     double totalQ[4],dQ[4], axisNorm[3], origin[3];
 
@@ -573,7 +510,7 @@
   }
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::rotate(const double * const totalQ, const double * const dQ, const double * const origin)
+  void MultiNodeMesh<NUM_NODES>::rotate(double *totalQ, double *dQ,double *origin)
   {
     if(!isRotating())
         this->error->all(FLERR,"Illegal call, need to register movement first");
@@ -599,16 +536,6 @@
       vectorScalarDiv3D(center_(i),static_cast<double>(NUM_NODES));
     }
 
-    if (store_omega)
-    {
-        if (step_store_omega != update->ntimestep)
-        {
-            step_store_omega = update->ntimestep;
-            vectorCopy4D(global_quaternion, prev_quaternion);
-        }
-        vectorCopy4D(totalQ, global_quaternion);
-    }
-
     updateGlobalBoundingBox();
   }
 
@@ -617,7 +544,7 @@
   ------------------------------------------------------------------------- */
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::rotate(const double dAngle, const double * const axis, const double * const p)
+  void MultiNodeMesh<NUM_NODES>::rotate(double dAngle, double *axis, double *p)
   {
     double dQ[4], axisNorm[3], origin[3];
 
@@ -640,7 +567,7 @@
   }
 
   template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::rotate(const double * const dQ, const double * const origin)
+  void MultiNodeMesh<NUM_NODES>::rotate(double *dQ, double *origin)
   {
     
     int n = sizeLocal() + sizeGhost();
@@ -660,16 +587,6 @@
         vectorAdd3D(node_(i)[j],center_(i),center_(i));
       }
       vectorScalarDiv3D(center_(i),static_cast<double>(NUM_NODES));
-    }
-
-    if (store_omega)
-    {
-        if (step_store_omega != update->ntimestep)
-        {
-            step_store_omega = update->ntimestep;
-            vectorCopy4D(global_quaternion, prev_quaternion);
-        }
-        quatMult4D(global_quaternion, dQ);
     }
 
     updateGlobalBoundingBox();
@@ -703,7 +620,7 @@
       for(int j = 0; j < NUM_NODES; j++)
       {
          vectorSubtract3D(center_(i),node_(i)[j],vec);
-         rb = std::max(rb,vectorMag3D(vec));
+         rb = MathExtraLiggghts::max(rb,vectorMag3D(vec));
       }
       rBound_(i) = rb;
     }
@@ -731,7 +648,7 @@
       for(int j = 0; j < NUM_NODES; j++)
       {
          vectorSubtract3D(center_(i),node_(i)[j],vec);
-         rb = std::max(rb,vectorMag3D(vec));
+         rb = MathExtraLiggghts::max(rb,vectorMag3D(vec));
       }
       rBound_(i) = rb;
     }
@@ -823,7 +740,7 @@
 
     if(flag) return true;
     else     return false;
-  }
+}
 
   /* ----------------------------------------------------------------------
    store node pos at last re-build
@@ -842,91 +759,5 @@
     for(int i = 0; i < nlocal; i++)
         nodesLastRe_.add(node[i]);
   }
-  /* ----------------------------------------------------------------------
-   calculate simple center of mass, NOT weighted with element area
-  ------------------------------------------------------------------------- */
-
-  template<int NUM_NODES>
-  void MultiNodeMesh<NUM_NODES>::center_of_mass(double *_com)
-  {
-    int nlocal = sizeLocal();
-    int nprocs = this->comm->nprocs;
-    vectorZeroize3D(_com);
-
-    for(int i = 0; i < nlocal; i++)
-        vectorAdd3D(_com,center_(i),_com);
-
-    vectorScalarDiv3D(_com,static_cast<double>(nlocal));
-
-    //printVec3D(this->screen,"_com on one proc",_com);
-
-    if(1 < nprocs)
-    {
-        double result[4];
-        vectorCopy3D(_com,result);
-        result[3] = static_cast<double>(nlocal);
-
-        double *result_all;
-        int size_all = MPI_Allgather_Vector(result,4,result_all,this->world);
-
-        if(size_all != 4*nprocs)
-            this->error->one(FLERR,"internal error");
-
-        vectorZeroize3D(_com);
-        double com_weighted[3];
-        double weightsum = 0.;
-        for(int iproc = 0; iproc < nprocs; iproc++)
-        {
-            vectorScalarMult3D(&result_all[iproc*4],static_cast<double>(result_all[iproc*4+3]),com_weighted);
-            weightsum += static_cast<double>(result_all[iproc*4+3]);
-            vectorAdd3D(_com,com_weighted,_com);
-            //printVec3D(this->screen,"com_weighted",com_weighted);
-            //fprintf(this->screen,"weightsum %f\n",weightsum);
-        }
-        vectorScalarDiv3D(_com,weightsum);
-
-        delete []result_all;
-    }
-
-  }
-
-template<int NUM_NODES>
-void MultiNodeMesh<NUM_NODES>::get_global_vel(double *vel)
-{
-    if (!store_vel)
-        return;
-    if (step_store_vel != update->ntimestep)
-    {
-        step_store_vel = update->ntimestep;
-        vectorZeroize3D(global_vel);
-    }
-    vectorCopy3D(global_vel, vel);
-}
-
-template<int NUM_NODES>
-void MultiNodeMesh<NUM_NODES>::get_global_omega(double *omega)
-{
-    if (!store_omega)
-        return;
-    if (step_store_omega != update->ntimestep)
-    {
-        step_store_omega = update->ntimestep;
-        vectorCopy4D(global_quaternion, prev_quaternion);
-    }
-    double dQ[4];
-    double invPrevQ[4];
-    quatInverse4D(prev_quaternion, invPrevQ);
-    quatMult4D(invPrevQ, global_quaternion, dQ);
-    dQ[0] = fmax(-1.0, fmin(1.0, dQ[0]));
-    const double dAngle = 2.0*acos(dQ[0]);
-    if (fabs(dAngle) > 1e-12)
-    {
-        const double SinHalfdAngle = sin(dAngle*0.5);
-        const double multi = dAngle/(SinHalfdAngle*update->dt);
-        vectorScalarMult3D(&(dQ[1]), multi, omega);
-    }
-    else
-        vectorZeroize3D(omega);
-}
 
 #endif

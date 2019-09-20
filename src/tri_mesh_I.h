@@ -1,69 +1,55 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_TRI_MESH_I_H
 #define LMP_TRI_MESH_I_H
 
-#ifndef SMALL_TRIMESH
-#define SMALL_TRIMESH (1.e-10)  
-#endif
+#define SMALL_TRIMESH 1.e-10
 #define LARGE_TRIMESH 1000000
 
   /* ---------------------------------------------------------------------- */
 
-  inline double TriMesh::resolveTriSphereContact(int iPart,int nTri, double rSphere, double *cSphere, double *delta,int &barysign)
+  inline double TriMesh::resolveTriSphereContact(int iPart,int nTri, double rSphere, double *cSphere, double *delta)
   {
     // this is the overlap algorithm, neighbor list build is
     // coded in resolveTriSphereNeighbuild
 
     double bary[3];
-    return resolveTriSphereContactBary(iPart,nTri,rSphere,cSphere,delta,bary,barysign);
+    return resolveTriSphereContactBary(iPart,nTri,rSphere,cSphere,delta,bary);
   }
 
   /* ---------------------------------------------------------------------- */
 
   inline double TriMesh::resolveTriSphereContactBary(int iPart, int nTri, double rSphere,
-                        double *cSphere, double *delta, double *bary,int &barySign,bool skip_inactive)
+                                   double *cSphere, double *delta, double *bary)
   {
     double **n = node_(nTri);
     int obtuseAngleIndex = SurfaceMeshBase::obtuseAngleIndex(nTri);
@@ -76,30 +62,29 @@
 
     MathExtraLiggghts::calcBaryTriCoords(node0ToSphereCenter,edgeVec(nTri),edgeLen(nTri),bary);
 
-    double invlen = 1./(2.*rBound_(nTri));
-    barySign = (bary[0] > -precision_trimesh()*invlen) + 2*(bary[1] > -precision_trimesh()*invlen) + 4*(bary[2] > -precision_trimesh()*invlen);
+    int barySign = (bary[0] > -SMALL_TRIMESH) + 2*(bary[1] > -SMALL_TRIMESH) + 4*(bary[2] > -SMALL_TRIMESH);
 
     double d(0.);
 
     switch(barySign)
     {
     case 1: 
-      d = resolveCornerContactBary(nTri,0,obtuseAngleIndex == 0,cSphere,delta,bary,skip_inactive);
+      d = resolveCornerContactBary(nTri,0,obtuseAngleIndex == 0,cSphere,delta,bary);
       break;
     case 2: 
-      d = resolveCornerContactBary(nTri,1,obtuseAngleIndex == 1,cSphere,delta,bary,skip_inactive);
+      d = resolveCornerContactBary(nTri,1,obtuseAngleIndex == 1,cSphere,delta,bary);
       break;
     case 3: 
-      d = resolveEdgeContactBary(nTri,0,cSphere,delta,bary,skip_inactive);
+      d = resolveEdgeContactBary(nTri,0,cSphere,delta,bary);
       break;
     case 4: 
-      d = resolveCornerContactBary(nTri,2,obtuseAngleIndex == 2,cSphere,delta,bary,skip_inactive);
+      d = resolveCornerContactBary(nTri,2,obtuseAngleIndex == 2,cSphere,delta,bary);
       break;
     case 5: 
-      d = resolveEdgeContactBary(nTri,2,cSphere,delta,bary,skip_inactive);
+      d = resolveEdgeContactBary(nTri,2,cSphere,delta,bary);
       break;
     case 6: 
-      d = resolveEdgeContactBary(nTri,1,cSphere,delta,bary,skip_inactive);
+      d = resolveEdgeContactBary(nTri,1,cSphere,delta,bary);
       break;
     case 7: // face contact - all three barycentric coordinates are > 0
       d = resolveFaceContactBary(nTri,cSphere,node0ToSphereCenter,delta);
@@ -117,7 +102,7 @@
 
   /* ---------------------------------------------------------------------- */
 
-  inline double TriMesh::resolveEdgeContactBary(int iTri, int iEdge, double *p, double *delta, double *bary,bool skip_inactive)
+  inline double TriMesh::resolveEdgeContactBary(int iTri, int iEdge, double *p, double *delta, double *bary)
   {
       int ip = (iEdge+1)%3, ipp = (iEdge+2)%3;
       double nodeToP[3], d(1.);
@@ -129,14 +114,14 @@
 
       if(distFromNode < -SMALL_TRIMESH){
         
-        if(skip_inactive && !cornerActive(iTri)[iEdge])
+        if(!cornerActive(iTri)[iEdge])
             return LARGE_TRIMESH;
         d = calcDist(p,n[iEdge],delta);
         bary[iEdge] = 1.; bary[ip] = 0.; bary[ipp] = 0.;
       }
       else if(distFromNode > edgeLen(iTri)[iEdge] + SMALL_TRIMESH){
         
-        if(skip_inactive && !cornerActive(iTri)[ip])
+        if(!cornerActive(iTri)[ip])
             return LARGE_TRIMESH;
         d = calcDist(p,n[ip],delta);
         bary[iEdge] = 0.; bary[ip] = 1.; bary[ipp] = 0.;
@@ -145,7 +130,7 @@
         
         double closestPoint[3];
 
-        if(skip_inactive && !edgeActive(iTri)[iEdge])
+        if(!edgeActive(iTri)[iEdge])
             return LARGE_TRIMESH;
 
         vectorAddMultiple3D(n[iEdge],distFromNode,edgeVec(iTri)[iEdge],closestPoint);
@@ -163,14 +148,13 @@
   /* ---------------------------------------------------------------------- */
 
   inline double TriMesh::resolveCornerContactBary(int iTri, int iNode, bool obtuse,
-                                                    double *p, double *delta, double *bary,bool skip_inactive)
+                                                    double *p, double *delta, double *bary)
   {
       int ip = (iNode+1)%3, ipp = (iNode+2)%3;
       //double d(1.);
       double *n = node_(iTri)[iNode];
 
-      if(obtuse)
-      {
+      if(obtuse){
         
         double **edge = edgeVec(iTri);
         double nodeToP[3], closestPoint[3];
@@ -179,10 +163,10 @@
 
         double distFromNode = vectorDot3D(nodeToP,edge[ipp]);
         if(distFromNode < SMALL_TRIMESH)
-        {
+          {
             if(distFromNode > -edgeLen(iTri)[ipp]){
               
-              if(skip_inactive && !edgeActive(iTri)[ipp])
+              if(!edgeActive(iTri)[ipp])
                 return LARGE_TRIMESH;
 
               vectorAddMultiple3D(n,distFromNode,edge[ipp],closestPoint);
@@ -194,23 +178,23 @@
               return calcDist(p,closestPoint,delta);
             } else{
               
-              if(skip_inactive && !cornerActive(iTri)[ipp])
+              if(!cornerActive(iTri)[ipp])
                 return LARGE_TRIMESH;
 
               bary[ipp] = 1.; bary[iNode] = bary[ip] = 0.;
               return calcDist(p,node_(iTri)[ipp],delta);
             }
-        }
+          }
 
         distFromNode = vectorDot3D(nodeToP,edge[iNode]);
         if(distFromNode > -SMALL_TRIMESH)
-        {
+          {
             if(distFromNode < edgeLen(iTri)[iNode]){
               
-              if(skip_inactive && !edgeActive(iTri)[iNode])
+              if(!edgeActive(iTri)[iNode])
                 return LARGE_TRIMESH;
 
-              vectorAddMultiple3D(n,distFromNode,edge[iNode],closestPoint);
+              vectorAddMultiple3D(n,distFromNode,edge[ipp],closestPoint);
 
               bary[ipp] = 0.;
               bary[iNode] = 1. - distFromNode/edgeLen(iTri)[iNode];
@@ -219,16 +203,17 @@
               return calcDist(p,closestPoint,delta);
             } else{
               
-              if(skip_inactive && !cornerActive(iTri)[ip])
+              if(!cornerActive(iTri)[ip])
                 return LARGE_TRIMESH;
 
               bary[ip] = 1.; bary[iNode] = bary[ipp] = 0.;
               return calcDist(p,node_(iTri)[ip],delta);
+
             }
-        }
+          }
       }
 
-      if(skip_inactive && !cornerActive(iTri)[iNode])
+      if(!cornerActive(iTri)[iNode])
           return LARGE_TRIMESH;
 
       bary[iNode] = 1.; bary[ip] = bary[ipp] = 0.;
@@ -336,11 +321,11 @@
     dot11 = vectorDot3D(v1, v1);
     dot12 = vectorDot3D(v1, v2);
 
-    invDenom = 1. / (dot00 * dot11 - dot01 * dot01);
+    invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
     u = (dot11 * dot02 - dot01 * dot12) * invDenom;
     v = (dot00 * dot12 - dot01 * dot02) * invDenom;
 
-    if((u > -SMALL_TRIMESH) && (v > -SMALL_TRIMESH) && (u + v < 1.+SMALL_TRIMESH))
+    if((u > -SMALL_TRIMESH) && (v > -SMALL_TRIMESH) && (u + v < 1+SMALL_TRIMESH))
         return true;
     else
         return false;

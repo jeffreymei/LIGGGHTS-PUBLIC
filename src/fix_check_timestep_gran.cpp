@@ -1,50 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <string.h>
-#include <stdlib.h>
-#include <cmath>
-#include <algorithm>
+#include "string.h"
+#include "stdlib.h"
 #include "atom.h"
 #include "update.h"
+#include "math.h"
 #include "error.h"
 #include "fix_check_timestep_gran.h"
 #include "pair_gran.h"
@@ -59,69 +42,32 @@
 #include "mpi_liggghts.h"
 #include "property_registry.h"
 #include "global_properties.h"
+#include <algorithm>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 using namespace MODEL_PARAMS;
+
+#define BIG 1000000.
 
 /* ---------------------------------------------------------------------- */
 
 FixCheckTimestepGran::FixCheckTimestepGran(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
-  warnflag = true;
-  errorflag = false;
-  vmax_user = 0.;
-
   if (narg < 6) error->all(FLERR,"Illegal fix check/timestep/gran command, not enough arguments");
+
+  nevery = atoi(arg[3]);
+  fraction_rayleigh_lim = atof(arg[4]);
+  fraction_hertz_lim = atof(arg[5]);
 
   int iarg = 6;
 
-  if(0 == strcmp("check_every_time",arg[3]))
-  {
-      nevery = atoi(arg[4]);
-      fraction_rayleigh_lim = atof(arg[5]);
-      fraction_hertz_lim = atof(arg[6]);
-      iarg = 7;
-  }
-  else
-  {
-      nevery = atoi(arg[3]);
-      fraction_rayleigh_lim = atof(arg[4]);
-      fraction_hertz_lim = atof(arg[5]);
-      iarg = 6;
-  }
-
-  while(iarg < narg)
-  {
-      if (strcmp(arg[iarg],"warn") == 0) {
-          if (narg < iarg+2) error->fix_error(FLERR,this,"not enough arguments for 'warn'");
-          if(0 == strcmp(arg[iarg+1],"no"))
-            warnflag = false;
-          else if(0 == strcmp(arg[iarg+1],"yes"))
-            warnflag = true;
-          else
-            error->fix_error(FLERR,this,"expecting 'yes' or 'no' after 'warn'");
-          iarg += 2;
-      } else if (strcmp(arg[iarg],"error") == 0) {
-          if (narg < iarg+2) error->fix_error(FLERR,this,"not enough arguments for 'error'");
-          if(0 == strcmp(arg[iarg+1],"no"))
-            errorflag = false;
-          else if(0 == strcmp(arg[iarg+1],"yes"))
-            errorflag = true;
-          else
-            error->fix_error(FLERR,this,"expecting 'yes' or 'no' after 'error'");
-          iarg += 2;
-      } else if (strcmp(arg[iarg],"vmax") == 0) {
-          if (narg < iarg+2) error->fix_error(FLERR,this,"not enough arguments for 'vmax'");
-          vmax_user = force->numeric(FLERR,arg[iarg+1]);
-          iarg += 2;
-      } else if(strcmp(style,"mesh/surface") == 0) {
-          char *errmsg = new char[strlen(arg[iarg])+50];
-          sprintf(errmsg,"unknown keyword or wrong keyword order: %s", arg[iarg]);
-          error->fix_error(FLERR,this,errmsg);
-          delete []errmsg;
-      }
+  warnflag = true;
+  if(iarg < narg){
+      if (narg < 8) error->all(FLERR,"Illegal fix check/timestep/gran command, not enough arguments");
+      if(strcmp(arg[iarg++],"warn")!=0) error->all(FLERR,"Illegal fix check/timestep/gran command, use keyword 'warn'");
+      if(strcmp(arg[iarg++],"no")==0) warnflag=false;
   }
 
   vector_flag = 1;
@@ -154,9 +100,9 @@ void FixCheckTimestepGran::init()
   if(!pg) pg = (PairGran*)force->pair_match("gran/omp",1);
 
   if (!pg)
-    error->all(FLERR,"Fix check/timestep/gran can only be used together with: gran");
+    error->all(FLERR,"Fix check/timestep/gran can only be used together with: gran"); 
 
-  properties = atom->get_properties();
+  properties = pg->get_properties();
   int max_type = properties->max_type();
 
   fwg = NULL;
@@ -185,45 +131,31 @@ void FixCheckTimestepGran::end_of_step()
 
     fraction_rayleigh = dt/rayleigh_time;
     fraction_hertz = dt/hertz_time;
-    fraction_skin = (v_rel_max_simulation * dt) / neighbor->skin;
+    fraction_skin = (vmax * dt) / neighbor->skin;
 
-    if(errorflag || (warnflag && comm->me==0))
+    if(warnflag&&comm->me==0)
     {
-        char errstr[512];
+        if(fraction_skin >= 0.5)
+        {
+            if(screen)  fprintf(screen ,"WARNING: time step too large or skin too small - particles may travel a distance of %f per time-step, but half skin is %f\n",vmax*dt,0.5*skin);
+            if(logfile) fprintf(logfile,"WARNING: time step too large or skin too small - particles may travel a distance of %f per time-step, but half skin is %f\n",vmax*dt,0.5*skin);
+        }
+
+        if(vmax * dt > r_min)
+        {
+            if(screen)  fprintf(screen  ,"WARNING: time step way too large - particles move further than the minimum radius in one step\n");
+            if(logfile)  fprintf(logfile,"WARNING: time step way too large - particles move further than the minimum radius in one step\n");
+        }
 
         if(fraction_rayleigh > fraction_rayleigh_lim)
         {
-            sprintf(errstr,"time-step is %f %% of rayleigh time",fraction_rayleigh*100.);
-            if(errorflag)
-                error->fix_error(FLERR,this,errstr);
-            else
-                error->warning(FLERR,errstr);
+            if(screen) fprintf(screen,  "WARNING: time-step is %f %% of rayleigh time\n",fraction_rayleigh*100.);
+            if(logfile) fprintf(logfile,"WARNING: time-step is %f %% of rayleigh time\n",fraction_rayleigh*100.);
         }
         if(fraction_hertz > fraction_hertz_lim)
         {
-            sprintf(errstr,"time-step is %f %% of hertz time",fraction_hertz*100.);
-            if(errorflag)
-                error->fix_error(FLERR,this,errstr);
-            else
-                error->warning(FLERR,errstr);
-        }
-
-        if(fraction_skin > 1)
-        {
-            sprintf(errstr,"time step too large or skin too small - particles may relatively travel a distance of %f per time-step, but skin is %f",v_rel_max_simulation*dt,skin);
-            if(errorflag)
-                error->fix_error(FLERR,this,errstr);
-            else
-                error->warning(FLERR,errstr);
-        }
-
-        if(v_rel_max_simulation * dt > r_min)
-        {
-            sprintf(errstr,"time step way too large - particles relativley move further than the minimum radius in one step");
-            if(errorflag)
-                error->fix_error(FLERR,this,errstr);
-            else
-                error->warning(FLERR,errstr);
+            if(screen) fprintf(screen,  "WARNING: time-step is %f %% of hertz time\n",fraction_hertz*100.);
+            if(logfile) fprintf(logfile,"WARNING: time-step is  %f %% of hertz time\n",fraction_hertz*100.);
         }
     }
 }
@@ -244,46 +176,35 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
   //check rayleigh time and vmax of particles
   rayleigh_time = BIG;
   r_min = BIG;
-  double vmax_sqr = 0;
-  double vmag_sqr;
+  vmax = 0;
+
+  double vmag;
   double rayleigh_time_i;
 
   for (int i = 0; i < nlocal; i++)
   {
     if (mask[i] & groupbit)
     {
-        double rad = r[i];
-        #ifdef SUPERQUADRIC_ACTIVE_FLAG
-        if(atom->superquadric_flag)
-            rad=std::min(std::min(atom->shape[i][0],atom->shape[i][1]),atom->shape[i][2]);        
-        #endif
-
-        double shear_mod = Y->get_values()[type[i]-1]/(2.*(nu->get_values()[type[i]-1]+1.));
-        rayleigh_time_i = M_PI*rad*sqrt(density[i]/shear_mod)/(0.1631*nu->get_values()[type[i]-1]+0.8766);
+        double shear_mod = Y->values[type[i]-1]/(2.*(nu->values[type[i]-1]+1.));
+        rayleigh_time_i = M_PI*r[i]*sqrt(density[i]/shear_mod)/(0.1631*nu->values[type[i]-1]+0.8766);
         if(rayleigh_time_i < rayleigh_time) rayleigh_time = rayleigh_time_i;
 
-        vmag_sqr = vectorMag3DSquared(v[i]);
-        if(vmag_sqr > vmax_sqr)
-            vmax_sqr = vmag_sqr;
+        vmag = sqrt(v[i][0]*v[i][0]+v[i][1]*v[i][1]+v[i][2]*v[i][2]);
+        if(vmag > vmax) vmax=vmag;
 
-        if(rad < r_min) r_min = rad;
+        if(r[i] < r_min) r_min = r[i];
     }
   }
 
-  MPI_Min_Scalar(r_min,world);
-  MPI_Max_Scalar(vmax_sqr,world);
-  MPI_Min_Scalar(rayleigh_time,world);
-
-  //choose vmax_user if larger than value in simulation
-  if(vmax_user*vmax_user > vmax_sqr)
-    vmax_sqr = vmax_user*vmax_user;
+ MPI_Min_Scalar(r_min,world);
+ MPI_Max_Scalar(vmax,world);
+ MPI_Min_Scalar(rayleigh_time,world);
 
   // get vmax of geometry
   FixMeshSurface ** mesh_list;
   TriMesh * mesh;
   double *v_node;
-  double vmax_sqr_mesh=0.;
-  double vmag_sqr_mesh;
+  double vmax_mesh=0.;
 
   if(fwg)
   {
@@ -297,25 +218,21 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
               if (mesh->prop().getElementPropertyIndex("v") == -1)
                   error->one(FLERR,"Internal error - mesh has no perElementProperty 'v' \n");
               // loop local elements only
-              int sizeMesh = mesh->sizeLocal();
-              for(int itri = 0; itri < sizeMesh; itri++)
-              {
-                  for(int inode = 0; inode < 3; inode++)
+              for(int itri=0;itri<mesh->sizeLocal();itri++)
+                  for(int inode=0;inode<3;inode++)
                   {
                       v_node = mesh->prop().getElementProperty<MultiVectorContainer<double,3,3> >("v")->begin()[itri][inode];
-                      vmag_sqr_mesh = vectorMag3DSquared(v_node);
-                      if(vmag_sqr_mesh > vmax_sqr_mesh)
-                        vmax_sqr_mesh = vmag_sqr_mesh;
+                      vmag = vectorMag3D(v_node);
+                      if(vmag>vmax_mesh) vmax_mesh=vmag;
                   }
-              }
           }
       }
   }
 
-  MPI_Max_Scalar(vmax_sqr_mesh,world);
+ MPI_Max_Scalar(vmax_mesh,world);
 
   // decide vmax - either particle-particle or particle-mesh contact
-  v_rel_max_simulation = std::max(2.*sqrt(vmax_sqr),sqrt(vmax_sqr) + sqrt(vmax_sqr_mesh));
+  vmax = std::max(2.*vmax,vmax+vmax_mesh);
 
   // check estimation for hertz time
   // this is not exact...
@@ -325,36 +242,28 @@ void FixCheckTimestepGran::calc_rayleigh_hertz_estims()
   double hertz_time_min = 1000000.;
   double hertz_time_i,meff,reff;
 
-  if ( !MathExtraLiggghts::compDouble(v_rel_max_simulation,0.0) ) {
-      for(int ti = 1; ti < max_type+1; ti++)
+  for(int ti = 1; ti < max_type+1; ti++)
+  {
+      for(int tj =  ti; tj < max_type+1; tj++)
       {
-          for(int tj =  ti; tj < max_type+1; tj++)
-          {
-              const double Eeff = Yeff[ti][tj];
+          const double Eeff = Yeff[ti][tj];
 
-              for(int i = 0; i < nlocal; i++)
-              {
-                if (mask[i] & groupbit)
-                {
-                    if(type[i]!=ti || type[i]!=tj) continue;
-                    meff = 4.*r[i]*r[i]*r[i]*M_PI/3.*density[i];
-                    reff = r[i]/2.;
-                    #ifdef SUPERQUADRIC_ACTIVE_FLAG
-                    if(atom->superquadric_flag) {
-                        meff = atom->volume[i]*density[i];
-                        reff = std::max(std::max(atom->shape[i][0],atom->shape[i][1]),atom->shape[i][2])/2.0;
-                    }    
-                    #endif
-                    hertz_time_i = 2.87*pow(meff*meff/(reff*Eeff*Eeff*v_rel_max_simulation),0.2);
-                    if(hertz_time_i<hertz_time_min)
-                        hertz_time_min=hertz_time_i;
-                }
-              }
+          for(int i = 0; i < nlocal; i++)
+          {
+            if (mask[i] & groupbit)
+            {
+                if(type[i]!=ti || type[i]!=tj) continue;
+                meff = 4.*r[i]*r[i]*r[i]*M_PI/3.*density[i];
+                reff = r[i]/2.;
+                hertz_time_i = 2.87*pow(meff*meff/(reff*Eeff*Eeff*vmax),0.2);
+                if(hertz_time_i<hertz_time_min)
+                    hertz_time_min=hertz_time_i;
+            }
           }
       }
   }
 
-  MPI_Min_Scalar(hertz_time_min,world);
+ MPI_Min_Scalar(hertz_time_min,world);
   hertz_time = hertz_time_min;
 }
 

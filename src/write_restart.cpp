@@ -1,57 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #include "lmptype.h"
-#include <mpi.h>
-#include <string.h>
+#include "mpi.h"
+#include "string.h"
 #include "write_restart.h"
 #include "atom.h"
 #include "atom_vec.h"
@@ -75,9 +51,6 @@
 #include "thermo.h"
 #include "memory.h"
 #include "error.h"
-#if !defined(WINDOWS) && !defined(__MINGW32__)
-#include <sys/stat.h>
-#endif
 
 using namespace LAMMPS_NS;
 
@@ -127,39 +100,19 @@ void WriteRestart::command(int narg, char **arg)
   int n = strlen(arg[0]) + 16;
   char *file = new char[n];
 
-  if ((ptr = strchr(arg[0],'*'))){
+  if ((ptr = strchr(arg[0],'*'))) { 
     *ptr = '\0';
     sprintf(file,"%s" BIGINT_FORMAT "%s",arg[0],update->ntimestep,ptr+1);
   } else strcpy(file,arg[0]);
 
-  // check whether the folder is accessible, not available on windows
-#if !defined(_WINDOWS) && !defined(__MINGW32__)
-    std::string fname(file);
-    std::size_t last_slash = fname.rfind("/");
-    // check if we use directories at all
-    if (last_slash != std::string::npos)
-    {
-        std::size_t next_slash = fname.find("/", 1);
-        while (next_slash != std::string::npos)
-        {
-            std::string curdir = fname.substr(0, next_slash);
-            struct stat statbuf;
-            const bool exists = (stat(curdir.c_str(), &statbuf) != -1) && S_ISDIR(statbuf.st_mode);
-            if (!exists)
-                mkdir(curdir.c_str(), S_IRWXU | S_IRGRP | S_IXGRP);
-            next_slash = fname.find("/", next_slash+1);
-        }
-    }
-#endif
-
   int iregion;
-  if(narg == 3 && strcmp(arg[1],"region"))
+  if(narg == 4 && strcmp(arg[2],"region"))
     error->all(FLERR,"Write_restart expects keyword 'region'");
-  if(narg == 3)
+  if(narg == 4)
   {
-    iregion = domain->find_region(arg[2]);
-    if (iregion == -1) error->all(FLERR,"Write_restart region ID does not exist");
-    else region = domain->regions[iregion];
+      iregion = domain->find_region(arg[3]);
+      if (iregion == -1) error->all(FLERR,"Write_restart region ID does not exist");
+      else region = domain->regions[iregion];
   }
   else region = NULL;
 
@@ -184,8 +137,6 @@ void WriteRestart::command(int narg, char **arg)
   comm->exchange();
   comm->borders();
   if (domain->triclinic) domain->lamda2x(atom->nlocal+atom->nghost);
-
-  modify->forceMeshExchange(); // call explicit exchange of mesh data
 
   write(file);
   delete [] file;
@@ -243,7 +194,7 @@ void WriteRestart::write(char *file)
     } else hfile = file;
     fp = fopen(hfile,"wb");
     if (fp == NULL) {
-      char str[512];
+      char str[128];
       sprintf(str,"Cannot open restart file %s",hfile);
       error->one(FLERR,str);
     }
@@ -270,10 +221,8 @@ void WriteRestart::write(char *file)
   MPI_Allreduce(&send_size,&max_size,1,MPI_INT,MPI_MAX,world);
 
   double *buf;
-  
   if (me == 0) memory->create(buf,max_size,"write_restart:buf");
   else memory->create(buf,send_size,"write_restart:buf");
-  //vectorZeroizeN(buf,send_size);
 
   // pack my atom data into buf
 
@@ -365,7 +314,6 @@ void WriteRestart::write(char *file)
         } else recv_size = send_size;
 
         fwrite(&recv_size,sizeof(int),1,fp);
-        
         fwrite(buf,sizeof(double),recv_size,fp);
       }
       fclose(fp);
@@ -385,7 +333,7 @@ void WriteRestart::write(char *file)
     *ptr = '%';
     fp = fopen(perproc,"wb");
     if (fp == NULL) {
-      char str[512];
+      char str[128];
       sprintf(str,"Cannot open restart file %s",perproc);
       error->one(FLERR,str);
     }

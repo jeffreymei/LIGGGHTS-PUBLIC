@@ -1,47 +1,35 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <string.h>
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
+------------------------------------------------------------------------- */
+
+#include "string.h"
 #include "dump_mesh_stl.h"
 #include "tri_mesh.h"
 #include "domain.h"
@@ -51,7 +39,6 @@
 #include "error.h"
 #include "fix.h"
 #include "fix_mesh_surface.h"
-#include "region_mesh_tet.h"
 #include "region.h"
 #include "modify.h"
 #include "comm.h"
@@ -71,6 +58,7 @@ enum
 DumpMeshSTL::DumpMeshSTL(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg),
   nMesh_(0),
   meshList_(0),
+  writeBinarySTL_(0),
   iregion_(-1)
 {
   if (narg < 5)
@@ -79,14 +67,14 @@ DumpMeshSTL::DumpMeshSTL(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, ar
   //INFO: CURRENTLY ONLY PROC 0 writes
 
   format_default = NULL;
-  binary = 0;
+  writeBinarySTL_ = 0;
   dump_what_ =  NLOCAL;
 
   int iarg = 5;
 
   while(iarg < narg){
     if(strncmp(arg[iarg],"binary",6) == 0){
-      binary = 1;
+      writeBinarySTL_ = 1;
       iarg++;
     } else if(strcmp(arg[iarg],"region") == 0){
       if (narg < iarg+2)
@@ -106,36 +94,18 @@ DumpMeshSTL::DumpMeshSTL(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, ar
       iarg++;
     } else {
 
+      // assume it's a mesh
       TriMesh **meshListNew = new TriMesh*[nMesh_+1];
       for(int i = 0; i < nMesh_; i++)
         meshListNew[i] = meshList_[i];
       delete[] meshList_;
       meshList_ = meshListNew;
 
-      // assume it's a mesh
-      int ifix = modify->find_fix(arg[iarg]);
-      if(ifix >= 0)
-      {
-          FixMeshSurface *fms = static_cast<FixMeshSurface*>(modify->fix[ifix]);
-          meshList_[nMesh_] = fms->triMesh();
-          fms->dumpAdd();
-      }
-      // assume it's a surface of a tet mesh
-      else
-      {
-         int ireg = domain->find_region(arg[iarg]);
-
-         if(ireg < 0)
-            error->all(FLERR,"Illegal dump mesh/stl command, unknown keyword or mesh");
-
-         // only mesh/tet style valid
-         if(strcmp(domain->regions[ireg]->style,"mesh/tet"))
-            error->all(FLERR,"Illegal dump mesh/stl command, region found, but not of style 'mesh/tet'");
-
-         // region is of right style
-         meshList_[nMesh_] = static_cast<RegTetMesh*>(domain->regions[ireg])->get_tri_mesh();
-      }
-      iarg++;
+      int ifix = modify->find_fix(arg[iarg++]);
+      if(ifix == -1)
+          error->all(FLERR,"Illegal dump mesh/stl command, unknown keyword or mesh");
+      FixMeshSurface *fms = static_cast<FixMeshSurface*>(modify->fix[ifix]);
+      meshList_[nMesh_] = fms->triMesh();
       nMesh_++;
     }
   }
@@ -164,12 +134,7 @@ DumpMeshSTL::~DumpMeshSTL()
 {
   for (int iMesh = 0; iMesh < nMesh_; iMesh++)
   {
-      if(meshList_[iMesh]->mesh_id())
-      {
-          Fix *f = modify->find_fix_id(meshList_[iMesh]->mesh_id());
-          if(f)
-            static_cast<FixMeshSurface*>(f)->dumpRemove();
-      }
+      static_cast<FixMeshSurface*>(modify->find_fix_id(meshList_[iMesh]->mesh_id()))->dumpRemove();
   }
 
   delete[] meshList_;
@@ -214,14 +179,14 @@ int DumpMeshSTL::modify_param(int narg, char **arg)
 
 void DumpMeshSTL::write_header(bigint ndump)
 {
-  if(binary) write_header_binary(ndump);
+  if(writeBinarySTL_) write_header_binary(ndump);
   else write_header_ascii(ndump);
 }
 
 void DumpMeshSTL::write_header_binary(bigint ndump)
 {
   // ndump = # of dump lines this proc will contribute to dump
-  if(!multiproc && comm->me != 0) return;
+  if(comm->me != 0) return;
   char *header;
   header = new char[81];
 
@@ -346,7 +311,7 @@ void DumpMeshSTL::write_data(int n, double *mybuf)
   
   if(!multiproc && comm->me != 0) return;
 
-  if(binary) write_data_binary(n,mybuf);
+  if(writeBinarySTL_) write_data_binary(n,mybuf);
   else write_data_ascii(n,mybuf);
 }
 

@@ -1,47 +1,31 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdlib.h"
+#include "string.h"
 #include "atom.h"
 #include "atom_vec.h"
 #include "comm.h"
@@ -68,29 +52,30 @@ using namespace FixConst;
 
 FixMassflowMesh::FixMassflowMesh(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg),
-  delete_atoms_(false),
-  mass_deleted_(0.),
-  nparticles_deleted_(0),
-  once_(false),
   fix_orientation_(0),
-  fix_counter_(0),
   fix_mesh_(0),
+  fix_counter_(0),
   fix_neighlist_(0),
-  fix_volumeweight_ms_(0),
   havePointAtOutlet_(false),
   insideOut_(false),
+  once_(false),
   mass_(0.),
-  nparticles_(0.),
+  nparticles_(0),
   fix_property_(0),
   property_sum_(0.),
   screenflag_(false),
   fp_(0),
-  writeTime_(false),
   mass_last_(0.),
   nparticles_last_(0.),
   t_count_(0.),
   delta_t_(0.),
-  reset_t_count_(true)
+  reset_t_count_(true),
+  delete_atoms_(false),
+  mass_deleted_(0.),
+  nparticles_deleted_(0),
+  fix_ms_(0),
+  ms_(0),
+  ms_counter_(0)
 {
     vectorZeroize3D(nvec_);
     vectorZeroize3D(pref_);
@@ -142,10 +127,6 @@ FixMassflowMesh::FixMassflowMesh(LAMMPS *lmp, int narg, char **arg) :
                 error->fix_error(FLERR,this,"expecting 'once' or 'multiple' after 'count'");
             iarg_++;
             hasargs = true;
-        } else if( strcmp(arg[iarg_],"writeTime") == 0) {
-            writeTime_ = true;
-            iarg_++;
-            hasargs = true;
         } else if(strcmp(arg[iarg_],"point_at_outlet") == 0) {
             if(narg < iarg_+4)
                 error->fix_error(FLERR,this,"not enough arguments for 'point_at_outlet'");
@@ -176,9 +157,8 @@ FixMassflowMesh::FixMassflowMesh(LAMMPS *lmp, int narg, char **arg) :
                 fp_ = fopen(filecurrent,"w");
             else
                 fp_ = fopen(filecurrent,"a");
-            delete[] filecurrent;
             if (fp_ == NULL) {
-               char str[512];
+               char str[128];
                sprintf(str,"Cannot open file %s",arg[iarg_+1]);
                 error->fix_error(FLERR,this,str);
             }
@@ -200,27 +180,13 @@ FixMassflowMesh::FixMassflowMesh(LAMMPS *lmp, int narg, char **arg) :
             else error->all(FLERR,"Illegal delete command");
             iarg_ += 2;
             hasargs = true;
-        } else if(strcmp(style,"massflow/mesh") == 0)
+        } else if(strcmp("style","massflow/mesh") == 0)
             error->fix_error(FLERR,this,"unknown keyword");
     }
 
     if(fp_ && 1 < comm->nprocs && 0 == comm->me)
       fprintf(screen,"**FixMassflowMesh: > 1 process - "
                      " will write to multiple files\n");
-    if(fp_)
-    {
-        //write header
-        fprintf(fp_,"# ID");
-
-        if(writeTime_)
-          fprintf(fp_," time ");
-
-        fprintf(fp_," diameter x y z u v w");
-
-        fprintf(fp_,"  (ex ey ez, color)\n");
-
-        fflush(fp_);
-    }
 
     // error checks on necessary args
 
@@ -235,7 +201,15 @@ FixMassflowMesh::FixMassflowMesh(LAMMPS *lmp, int narg, char **arg) :
 
     // get reference point on face
     // calculate normalvec
-    setRefPoint();
+
+    fix_mesh_->triMesh()->node(0,0,pref_);
+    fix_mesh_->triMesh()->surfaceNorm(0,nvec_);
+    double dot = vectorDot3D(nvec_,sidevec_);
+
+    if(fabs(dot) < 1e-6 && !havePointAtOutlet_ )
+        error->fix_error(FLERR,this,"need to change 'vec_side', it is currently in or to close to the mesh plane");
+    else if(dot < 0.)
+        vectorScalarMult3D(nvec_,-1.);
 
     restart_global = 1;
 
@@ -250,10 +224,7 @@ FixMassflowMesh::FixMassflowMesh(LAMMPS *lmp, int narg, char **arg) :
 
 FixMassflowMesh::~FixMassflowMesh()
 {
-    if(fp_)
-        fclose(fp_);
-    // do not delete fix_neighlist_, this will be handled by fix mesh/surface itself
-    fix_neighlist_ = NULL;
+   if(fp_) fclose(fp_);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -282,29 +253,20 @@ void FixMassflowMesh::post_create()
 
     fix_neighlist_ = fix_mesh_->createOtherNeighList(igroup,id);
 
-    fix_volumeweight_ms_ = static_cast<FixPropertyAtom*>(modify->find_fix_property("volumeweight_ms","property/atom","scalar",0,0,style,false));
-
     // need to find multisphere here to be able to add property
-    
-    FixMultisphere *fix_ms = static_cast<FixMultisphere*>(modify->find_fix_style("multisphere",0));
-    if(fix_ms)
-    {
-        Multisphere *ms = &fix_ms->data();
-        char property_name[200];
-        sprintf(property_name,"counter_ms_%s",id);
 
-        if(!ms->prop().getElementProperty< ScalarContainer<int> >(static_cast<const char*>(property_name)))
-        {
-            (ms->prop().addElementProperty< ScalarContainer<int> >(static_cast<const char*>(property_name),"comm_exchange_borders","frame_invariant", "restart_yes"))->setDefaultValue(-1);
-            
-        }
+    fix_ms_ = static_cast<FixMultisphere*>(modify->find_fix_style_strict("multisphere",0));
+    if(fix_ms_)
+    {
+        ms_ = &fix_ms_->data();
+        ms_counter_ = ms_->prop().addElementProperty< ScalarContainer<int> >("counter_ms","comm_exchange_borders","frame_invariant", "restart_yes");
+        ms_counter_->setDefaultValue(-1);
 
         if(delete_atoms_)
-            error->fix_error(FLERR,this,"can not use 'delete_atoms' with fix multisphere/*");
+            error->fix_error(FLERR,this,"can not use 'delete_atoms' with fix multisphere");
         if(!once_)
-            error->fix_error(FLERR,this,"must use 'count once' with fix multisphere/*");
+            error->fix_error(FLERR,this,"must use 'count once' with fix multisphere");
     }
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -320,17 +282,14 @@ void FixMassflowMesh::pre_delete(bool unfixflag)
 
 void FixMassflowMesh::init()
 {
-    
-    fix_volumeweight_ms_ = static_cast<FixPropertyAtom*>(modify->find_fix_property("volumeweight_ms","property/atom","scalar",0,0,style,false));
-
     if (atom->rmass_flag == 0)
         error->fix_error(FLERR,this,"requires atoms have mass");
 
     if(delete_atoms_ && 1 != atom->map_style)
         error->fix_error(FLERR,this,"requires an atom map of type 'array', via an 'atom_modify map array' command");
-/*
-    if(!fix_ms_ && static_cast<FixMultisphere*>(modify->find_fix_style("multisphere",0)))
-        error->fix_error(FLERR,this,"fix multisphere must come before fix massflow/mesh in input script");*/
+
+    if(!fix_ms_ && static_cast<FixMultisphere*>(modify->find_fix_style_strict("multisphere",0)))
+        error->fix_error(FLERR,this,"fix multisphere must come before fix massflow/mesh in input script");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -365,17 +324,15 @@ int FixMassflowMesh::setmask()
 
 void FixMassflowMesh::post_integrate()
 {
-    
     int nlocal = atom->nlocal;
     double **x = atom->x;
     double **v = atom->v;
     double *radius = atom->radius;
     double *rmass = atom->rmass;
-    int *mask = atom->mask;
     double *counter = fix_counter_->vector_atom;
-    double dot,delta[3]={}, bary[3];
+    double dot,delta[3]={};
     double mass_this = 0.;
-    double nparticles_this = 0.;
+    int nparticles_this = 0.;
     double property_this = 0.;
     double deltan;
     int *tag = atom->tag;
@@ -389,11 +346,6 @@ void FixMassflowMesh::post_integrate()
 
     TriMesh *mesh = fix_mesh_->triMesh();
     int nTriAll = mesh->sizeLocal() + mesh->sizeGhost();
-
-    // update reference point
-    if (fix_mesh_->triMesh()->isMoving() || fix_mesh_->triMesh()->isDeforming()) {
-        setRefPoint();
-    }
 
     // update time for counter
     // also store values for last invokation
@@ -413,28 +365,23 @@ void FixMassflowMesh::post_integrate()
         
         const std::vector<int> & neighborList = fix_neighlist_->get_contact_list(iTri);
         const int numneigh = neighborList.size();
-
         for(int iNeigh = 0; iNeigh < numneigh; iNeigh++)
         {
             const int iPart = neighborList[iNeigh];
 
             // skip ghost particles
-            if(iPart >= nlocal)
-                continue;
+            if(iPart >= nlocal) continue;
 
-            // skip particles not in fix group
-            if (!(mask[iPart] & groupbit))
-                continue;
+            const int ibody = fix_ms_ ? ( (fix_ms_->belongs_to(iPart) > -1) ? (ms_->map(fix_ms_->belongs_to(iPart))) : -1 ) : -1;
 
             // in case of once_ == true, ignore everything which has been already counted
-            if(compDouble(counter[iPart],2.))
-                continue;
-
-            int barySign;
-            deltan = fix_mesh_->triMesh()->resolveTriSphereContactBary(iPart,iTri,radius[iPart],x[iPart],delta,bary,barySign);
+            if((ibody > -1) ?  ((*ms_counter_)(ibody) == 2) : (compDouble(counter[iPart],2.)) ) continue;
 
             if(havePointAtOutlet_)
             {
+                //get the vector from the particle center
+                //to the next triangle
+                deltan = fix_mesh_->triMesh()->resolveTriSphereContact(iPart,iTri,radius[iPart],x[iPart],delta);
                 if(deltan < radius[iPart])
                 {
                     vectorSubtract3D(x[iPart],pointAtOutlet_,nvec_); //vector pointing to the particle location
@@ -452,23 +399,25 @@ void FixMassflowMesh::post_integrate()
             }
 
             // first-time, just set 0 or 1 depending on what side of the mesh
-            if(compDouble(counter[iPart],-1.))
+            if((ibody > -1) ? ((*ms_counter_)(ibody) == -1) : (compDouble(counter[iPart],-1.)) )
             {
-                counter[iPart] = (dot <= 0.) ? 0. : 1.;
+                if(ibody > -1)
+                    (*ms_counter_)(ibody) = (dot <= 0.) ? 0. : 1.;
+                else
+                    counter[iPart] = (dot <= 0.) ? 0. : 1.;
                 
                 continue;
             }
 
             // particle is now on nvec_ side
-            if(dot > 0.  && 7 == barySign) 
+            if(dot > 0.)
             {
                 //particle was not on nvec_ side before
-                if((compDouble(counter[iPart],0.)) ) // compDouble(counter[iPart],0.))
+                if((ibody > -1) ? ((*ms_counter_)(ibody) == 0) : (compDouble(counter[iPart],0.)) ) // compDouble(counter[iPart],0.))
                 {
                     
-                    mass_this += (fix_volumeweight_ms_ ? fix_volumeweight_ms_->vector_atom[iPart] : 1.) * rmass[iPart];
-                    nparticles_this += (fix_volumeweight_ms_ ? fix_volumeweight_ms_->vector_atom[iPart] : 1.);
-
+                    mass_this += rmass[iPart];
+                    nparticles_this ++;
                     if(fix_property_)
                     {
                         
@@ -477,27 +426,22 @@ void FixMassflowMesh::post_integrate()
 
                     if(delete_atoms_)
                     {
-                        //reset counter to avoid problems with other fixes & mark to be deleted
-                        counter[iPart] = -1.0;
                         atom_tags_delete_.push_back(atom->tag[iPart]);
                     }
 
                     if (screenflag_ && screen)
                         fprintf(screen," %d %4.4g %4.4g %4.4g %4.4g %4.4g %4.4g %4.4g \n ",
-                                       tag[iPart],2.*radius[iPart]/force->cg(atom->type[iPart]),
+                                       tag[iPart],2.*radius[iPart]/force->cg(),
                                        x[iPart][0],x[iPart][1],x[iPart][2],
                                        v[iPart][0],v[iPart][1],v[iPart][2]);
                     if(fp_)
                     {
-                        fprintf(fp_,"%d", tag[iPart]);
-
-                        if(writeTime_)
-                            fprintf(fp_,"  %4.4g ", update->dt*update->ntimestep);
-
-                        fprintf(fp_," %4.4g %4.4g %4.4g %4.4g %4.4g %4.4g %4.4g",
-                                2.*radius[iPart]/force->cg(atom->type[iPart]),
+                        fprintf(fp_," %d %4.4g %4.4g %4.4g %4.4g %4.4g %4.4g %4.4g",
+                                   tag[iPart],2.*radius[iPart]/force->cg(),
                                    x[iPart][0],x[iPart][1],x[iPart][2],
                                 v[iPart][0],v[iPart][1],v[iPart][2]);
+                        if (fixColFound)
+                            fprintf(fp_,"    %4.0g ", fix_color->vector_atom[iPart]);
 
                         if(fix_orientation_)
                         {
@@ -506,20 +450,23 @@ void FixMassflowMesh::post_integrate()
                             fprintf(fp_,"    %4.4g %4.4g %4.4g ",
                                     orientation[iPart][0], orientation[iPart][1], orientation[iPart][2]);
                         }
-                        if (fixColFound)
-                            fprintf(fp_,"    %4.0g ", fix_color->vector_atom[iPart]);
                         fprintf(fp_,"\n");
                         fflush(fp_);
                     }
                 }
 
-                 if(!delete_atoms_) //only set if not marked for deletion
+                if(ibody > -1)
+                    (*ms_counter_)(ibody) = once_ ? 2. : 1.;
+                else
                     counter[iPart] = once_ ? 2. : 1.;
                 
             }
-            else if(dot <= 0.) // dot <= 0
+            else // dot <= 0
             {
-                counter[iPart] = 0.;
+                if(ibody > -1)
+                    (*ms_counter_)(ibody) = 0;
+                else
+                    counter[iPart] = 0.;
                 
             }
         }
@@ -546,7 +493,7 @@ void FixMassflowMesh::pre_exchange()
     if (delete_atoms_)
     {
         double mass_deleted_this_ = 0.;
-        double nparticles_deleted_this = 0.;
+        int nparticles_deleted_this_ = 0.;
         int *atom_map_array = atom->get_map_array();
 
         // delete particles
@@ -556,7 +503,7 @@ void FixMassflowMesh::pre_exchange()
             int iPart = atom->map(atom_tags_delete_[0]);
 
             mass_deleted_this_ += atom->rmass[iPart];
-            nparticles_deleted_this += (fix_volumeweight_ms_ ? fix_volumeweight_ms_->vector_atom[iPart] : 1.);
+            nparticles_deleted_this_++;
 
             atom->avec->copy(atom->nlocal-1,iPart,1);
 
@@ -570,12 +517,12 @@ void FixMassflowMesh::pre_exchange()
         atom_tags_delete_.clear();
 
         MPI_Sum_Scalar(mass_deleted_this_,world);
-        MPI_Sum_Scalar(nparticles_deleted_this,world);
+        MPI_Sum_Scalar(nparticles_deleted_this_,world);
 
         mass_deleted_ += mass_deleted_this_;
-        nparticles_deleted_ += nparticles_deleted_this;
+        nparticles_deleted_ += nparticles_deleted_this_;
 
-        if(nparticles_deleted_this)
+        if(nparticles_deleted_this_)
         {
             if (atom->tag_enable) {
               if (atom->map_style) {
@@ -599,9 +546,9 @@ void FixMassflowMesh::write_restart(FILE *fp)
   list[n++] = mass_;
   list[n++] = t_count_;
   list[n++] = mass_last_;
-  list[n++] = nparticles_last_;
+  list[n++] = static_cast<double>(nparticles_last_);
   list[n++] = mass_deleted_;
-  list[n++] = nparticles_deleted_;
+  list[n++] = static_cast<double>(nparticles_deleted_);
 
   if (comm->me == 0) {
     int size = n * sizeof(double);
@@ -622,9 +569,9 @@ void FixMassflowMesh::restart(char *buf)
   mass_ = list[n++];
   t_count_ = list[n++];
   mass_last_ = list[n++];
-  nparticles_last_ = list[n++];
+  nparticles_last_ = static_cast<int>(list[n++]);
   mass_deleted_ = list[n++];
-  nparticles_deleted_ = list[n++];
+  nparticles_deleted_ = static_cast<int>(list[n++]);
 }
 
 /* ----------------------------------------------------------------------
@@ -643,35 +590,17 @@ double FixMassflowMesh::compute_vector(int index)
     if(index == 0)
         return mass_;
     if(index == 1)
-        return nparticles_;
+        return static_cast<double>(nparticles_);
     if(index == 2)
         return delta_t_ == 0. ? 0. : (mass_-mass_last_)/delta_t_;
     if(index == 3)
-        return delta_t_ == 0. ? 0. : (nparticles_-nparticles_last_)/delta_t_;
+        return delta_t_ == 0. ? 0. : static_cast<double>(nparticles_-nparticles_last_)/delta_t_;
     if(index == 4)
         return mass_deleted_;
     if(index == 5)
-        return nparticles_deleted_;
+        return static_cast<double>(nparticles_deleted_);
     if(index == 6 && fix_property_)
         return property_sum_;
 
     return 0.;
-}
-
-/* ----------------------------------------------------------------------
-    get reference point on face
-    calculate normalvec
-------------------------------------------------------------------------- */
-
-void FixMassflowMesh::setRefPoint()
-{
-    fix_mesh_->triMesh()->node(0,0,pref_);
-    fix_mesh_->triMesh()->surfaceNorm(0,nvec_);
-    double dot = vectorDot3D(nvec_,sidevec_);
-
-    if(fabs(dot) < 1e-6 && !havePointAtOutlet_ )
-        error->fix_error(FLERR,this,"need to change 'vec_side', it is currently in or to close to the mesh plane \n"
-                                    "This error may be caused by a moving mesh command, since 'vec_side' is not moved with the mesh.");
-    else if(dot < 0.)
-        vectorScalarMult3D(nvec_,-1.);
 }

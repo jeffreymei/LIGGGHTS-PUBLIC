@@ -1,51 +1,19 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 // Park/Miller RNG
 
-#include <cmath>
+#include "math.h"
 #include "random_park.h"
 #include "error.h"
 
@@ -59,11 +27,11 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-RanPark::RanPark(LAMMPS *lmp, const char * seed_char, bool proc_shift, int multiplier) :
-    Random(lmp, seed_char, proc_shift, multiplier)
+RanPark::RanPark(LAMMPS *lmp, int seed_init) : Pointers(lmp)
 {
-  if (seed <= 0)
+  if (seed_init <= 0)
     error->one(FLERR,"Invalid seed for Park random # generator");
+  seed = seed_init;
   save = 0;
 }
 
@@ -73,10 +41,11 @@ RanPark::RanPark(LAMMPS *lmp, const char * seed_char, bool proc_shift, int multi
 
 double RanPark::uniform()
 {
-  const int k = seed/IQ;
+  int k = seed/IQ;
   seed = IA*(seed-k*IQ) - IR*k;
   if (seed < 0) seed += IM;
-  return AM*seed;
+  double ans = AM*seed;
+  return ans;
 }
 
 /* ----------------------------------------------------------------------
@@ -124,11 +93,13 @@ void RanPark::reset(int seed_init)
 
 void RanPark::reset(int ibase, double *coord)
 {
+  int i;
+
   char *str = (char *) &ibase;
   int n = sizeof(int);
 
   unsigned int hash = 0;
-  for (int i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
     hash += str[i];
     hash += (hash << 10);
     hash ^= (hash >> 6);
@@ -136,7 +107,7 @@ void RanPark::reset(int ibase, double *coord)
 
   str = (char *) coord;
   n = 3 * sizeof(double);
-  for (int i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
     hash += str[i];
     hash += (hash << 10);
     hash ^= (hash >> 6);
@@ -154,7 +125,7 @@ void RanPark::reset(int ibase, double *coord)
 
   // warm up the RNG
 
-  for (int i = 0; i < 5; i++) uniform();
+  for (i = 0; i < 5; i++) uniform();
   save = 0;
 }
 

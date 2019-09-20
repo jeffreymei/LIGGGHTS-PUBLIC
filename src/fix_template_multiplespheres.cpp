@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------
@@ -44,12 +28,11 @@ Thanks to Chris Stoltz (P&G) for providing
 a Fortran version of the MC integrator
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "fix_template_multiplespheres.h"
-#include "fix_property_atom.h"
 #include "math_extra.h"
 #include "math_extra_liggghts.h"
 #include "vector_liggghts.h"
@@ -59,7 +42,6 @@ a Fortran version of the MC integrator
 #include "modify.h"
 #include "comm.h"
 #include "force.h"
-#include "update.h"
 #include "output.h"
 #include "memory.h"
 #include "error.h"
@@ -79,8 +61,7 @@ using namespace LMP_PROBABILITY_NS;
 /* ---------------------------------------------------------------------- */
 
 FixTemplateMultiplespheres::FixTemplateMultiplespheres(LAMMPS *lmp, int narg, char **arg) :
-  FixTemplateSphere(lmp, narg, arg),
-  scale_fact(1.0)
+  FixTemplateSphere(lmp, narg, arg)
 {
   if(pdf_density->rand_style() != RANDOM_CONSTANT) error->all(FLERR,"Fix particletemplate/multiplespheres currently only supports constant density");
   if(pdf_radius) error->fix_error(FLERR,this,"currently does not support keyword 'radius'");
@@ -100,15 +81,10 @@ FixTemplateMultiplespheres::FixTemplateMultiplespheres(LAMMPS *lmp, int narg, ch
   delete pti;
   pti = new ParticleToInsert(lmp,nspheres);
 
-  bonded = false;
-  fix_bond_random_id = 0;
-
   for (int i = 0; i < 3; i++) {
       x_min[i] = LARGE;
       x_max[i] = -LARGE;
   }
-
-  overlap_slightly = no_overlap = false;
 
   // parse args
 
@@ -136,7 +112,7 @@ FixTemplateMultiplespheres::FixTemplateMultiplespheres(LAMMPS *lmp, int narg, ch
       if (strcmp(arg[iarg],"file") == 0)
       {
           iarg++;
-          if (narg < iarg+3) error->fix_error(FLERR,this,"not enough arguments for 'file'");
+          if (narg < iarg+3) error->fix_error(FLERR,this,"not enough arguments");
 
           if(different_type)
             atom_type_sphere = new int[nspheres];
@@ -155,16 +131,8 @@ FixTemplateMultiplespheres::FixTemplateMultiplespheres(LAMMPS *lmp, int narg, ch
           for(int i = 0; i < nspheres; i++)
           {
               if(r_sphere[i] <= 0.) error->fix_error(FLERR,this,"radius must be > 0");
-              if(different_type)
-              {
-                r_sphere[i] *= (scale_fact*force->cg(atom_type_sphere[i]));
-                vectorScalarMult3D(x_sphere[i],scale_fact*force->cg(atom_type_sphere[i]));
-              }
-              else
-              {
-                r_sphere[i] *= (scale_fact*force->cg(atom_type));
-                vectorScalarMult3D(x_sphere[i],scale_fact*force->cg(atom_type));
-              }
+              r_sphere[i] *= (scale_fact*force->cg());
+              vectorScalarMult3D(x_sphere[i],scale_fact*force->cg());
           }
 
           // calculate bounding box
@@ -187,35 +155,17 @@ FixTemplateMultiplespheres::FixTemplateMultiplespheres(LAMMPS *lmp, int narg, ch
           //read sphere r and coos, determine min and max
           for(int i = 0; i < nspheres; i++)
           {
-              if(different_type)
-                r_sphere[i] = atof(arg[iarg+3])*force->cg(atom_type_sphere[i]);
-              else
-                r_sphere[i] = atof(arg[iarg+3])*force->cg(atom_type);
+              r_sphere[i] = atof(arg[iarg+3])*force->cg();
               if(r_sphere[i] <= 0.) error->fix_error(FLERR,this,"radius must be >0");
               for(int j = 0; j < 3; j++)
               {
-                if(different_type)
-                  x_sphere[i][j] = atof(arg[iarg+j])*force->cg(atom_type_sphere[i]);
-                else
-                  x_sphere[i][j] = atof(arg[iarg+j])*force->cg(atom_type);
+                x_sphere[i][j] = atof(arg[iarg+j])*force->cg();
                 if (x_sphere[i][j]-r_sphere[i]<x_min[j]) x_min[j]=x_sphere[i][j]-r_sphere[i];
                 if (x_sphere[i][j]+r_sphere[i]>x_max[j]) x_max[j]=x_sphere[i][j]+r_sphere[i];
               }
               iarg+=4;
           }
       }
-    }
-    else if(strcmp(arg[iarg],"bonded") == 0)
-    {
-        if (narg < iarg+2)
-            error->fix_error(FLERR,this,"not enough arguments for 'bonded'");
-        if(0 == strcmp(arg[iarg+1],"yes"))
-            bonded = true;
-        else if(0 == strcmp(arg[iarg+1],"no"))
-            bonded = false;
-        else
-            error->fix_error(FLERR,this,"expecting 'yes' or 'no' after 'bonded'");
-        iarg+=2;
     }
     else if(strcmp(style,"particletemplate/multiplespheres") == 0)
         error->fix_error(FLERR,this,"unknown keyword");
@@ -248,49 +198,6 @@ void FixTemplateMultiplespheres::post_create()
 
     calc_bounding_sphere();
     calc_center_of_mass();
-
-    // check amount of overlap
-    // needed for some functionalities
-    check_overlap();
-
-    if(0 == strcmp(style,"particletemplate/multiplespheres"))
-        print_info();
-
-    if(bonded && !fix_bond_random_id)
-    {
-
-        fix_bond_random_id = static_cast<FixPropertyAtom*>(modify->find_fix_property("bond_random_id","property/atom","scalar",0,0,this->style,false));
-
-        if(!fix_bond_random_id)
-        {
-            const char *fixarg[] = {
-                  "bond_random_id", // fix id
-                  "all",       // fix group
-                  "property/atom", // fix style: property/atom
-                  "bond_random_id",     // property name
-                  "scalar", // 1 vector per particle
-                  "yes",    // restart
-                  "yes",     // communicate ghost
-                  "no",    // communicate rev
-                  "-1."
-            };
-            fix_bond_random_id = modify->add_fix_property_atom(9,const_cast<char**>(fixarg),style);
-            
-        }
-    }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixTemplateMultiplespheres::print_info()
-{
-  if (logfile)
-  {
-    fprintf(logfile,"Finished calculating properties of template\n");
-    fprintf(logfile,"   mass = %e, radius of bounding sphere = %e, radius of equivalent sphere = %e\n",mass_expect,r_bound,r_equiv);
-    fprintf(logfile,"   center of mass = %e, %e, %e\n",0.,0.,0.);
-    fprintf(logfile,"   center of bounding sphere in global coords = %e, %e, %e\n",x_bound[0],x_bound[1],x_bound[2]);
-  }
 }
 
 /* ----------------------------------------------------------------------*/
@@ -299,7 +206,7 @@ int FixTemplateMultiplespheres::maxtype()
 {
     if(!atom_type_sphere)
         return atom_type;
-    return vectorMaxN(atom_type_sphere,nspheres);
+    return vectorMax3D(atom_type_sphere);
 }
 
 /* ----------------------------------------------------------------------*/
@@ -308,7 +215,7 @@ int FixTemplateMultiplespheres::mintype()
 {
     if(!atom_type_sphere)
         return atom_type;
-    return vectorMinN(atom_type_sphere,nspheres);
+    return vectorMin3D(atom_type_sphere);
 }
 
 /* ----------------------------------------------------------------------
@@ -334,7 +241,7 @@ void FixTemplateMultiplespheres::calc_bounding_sphere()
       double x_bound_temp[3],rbound_temp;
 
       while(isphere < 0 || visited[isphere] || isphere >= nspheres )
-          isphere = static_cast<int>(random_mc->uniform()*nspheres);
+          isphere = static_cast<int>(random->uniform()*nspheres);
 
       nvisited++;
       visited[isphere] = 1;
@@ -345,7 +252,7 @@ void FixTemplateMultiplespheres::calc_bounding_sphere()
       while(nvisited < nspheres)
       {
           while(isphere < 0 || visited[isphere] || isphere >= nspheres )
-               isphere = static_cast<int>(random_mc->uniform()*nspheres);
+               isphere = static_cast<int>(random->uniform()*nspheres);
 
           nvisited++;
           visited[isphere] = 1;
@@ -384,50 +291,6 @@ void FixTemplateMultiplespheres::calc_bounding_sphere()
 }
 
 /* ----------------------------------------------------------------------
-   check overlap of spheres against each other
-------------------------------------------------------------------------- */
-
-void FixTemplateMultiplespheres::check_overlap()
-{
-    
-    double overlap_slightly_min = 1.0000001;
-    double overlap_slightly_max = 1.01;
-
-    overlap_slightly = true;
-    no_overlap = true;
-
-    double dist;
-    bool *overlap_slightly_vec = new bool[nspheres];
-    vectorInitializeN(overlap_slightly_vec,nspheres,false);
-
-    for(int i = 0; i < nspheres; i++)
-    {
-        for(int j = i+1; j < nspheres; j++)
-        {
-            dist = pointDistance(x_sphere[i],x_sphere[j]);
-
-            if(dist < (r_sphere[i] + r_sphere[j]))
-                no_overlap = false;
-
-            if( (dist > overlap_slightly_min*(r_sphere[i] + r_sphere[j])) &&
-                (dist < overlap_slightly_max*(r_sphere[i] + r_sphere[j]))
-              )
-            {
-                overlap_slightly_vec[i] = true;
-                overlap_slightly_vec[j] = true;
-            }
-        }
-    }
-
-    // if any sphere has no slight overlap, result is false
-    for(int i = 0; i < nspheres; i++)
-        if(!overlap_slightly_vec[i])
-            overlap_slightly = false;
-
-    delete []overlap_slightly_vec;
-}
-
-/* ----------------------------------------------------------------------
    sqr distance from x_sphere[j] to xtest
 ------------------------------------------------------------------------- */
 
@@ -446,9 +309,9 @@ double FixTemplateMultiplespheres::dist_sqr(int j, double *xtest)
 
 void FixTemplateMultiplespheres::generate_xtry(double *x_try)
 {
-    x_try[0] = x_min[0]+(x_max[0]-x_min[0])*random_mc->uniform();
-    x_try[1] = x_min[1]+(x_max[1]-x_min[1])*random_mc->uniform();
-    x_try[2] = x_min[2]+(x_max[2]-x_min[2])*random_mc->uniform();
+    x_try[0] = x_min[0]+(x_max[0]-x_min[0])*random->uniform();
+    x_try[1] = x_min[1]+(x_max[1]-x_min[1])*random->uniform();
+    x_try[2] = x_min[2]+(x_max[2]-x_min[2])*random->uniform();
 }
 
 /* ----------------------------------------------------------------------
@@ -514,7 +377,7 @@ double FixTemplateMultiplespheres::max_r_bound()
 
 double FixTemplateMultiplespheres::min_rad()
 {
-    double rmin = 100000000.;
+    double rmin = 0.;
 
     for(int j = 0; j < nspheres; j++)
       if(rmin > r_sphere[j]) rmin = r_sphere[j];
@@ -546,7 +409,7 @@ int FixTemplateMultiplespheres::number_spheres()
 void FixTemplateMultiplespheres::randomize_single()
 {
   
-  pti->nparticles = nspheres;
+  pti->nspheres = nspheres;
   pti->density_ins = expectancy(pdf_density);
   pti->volume_ins = volume_expect;
   pti->mass_ins = mass_expect;
@@ -555,7 +418,7 @@ void FixTemplateMultiplespheres::randomize_single()
   pti->atom_type = atom_type;
   if(atom_type_sphere)
   {
-    vectorCopyN(atom_type_sphere,pti->atom_type_vector,nspheres);
+    vectorCopy3D(atom_type_sphere,pti->atom_type_vector);
     pti->atom_type_vector_flag = true;
   }
 
@@ -573,18 +436,18 @@ void FixTemplateMultiplespheres::randomize_single()
 
 /* ----------------------------------------------------------------------*/
 
-void FixTemplateMultiplespheres::init_ptilist(int n_random_max, const bool enforce_single, FixPropertyAtom * const fix_release)
+void FixTemplateMultiplespheres::init_ptilist(int n_random_max)
 {
     if(pti_list) error->all(FLERR,"invalid FixTemplateSphere::init_list()");
     n_pti_max = n_random_max;
     pti_list = (ParticleToInsert**) memory->smalloc(n_pti_max*sizeof(ParticleToInsert*),"pti_list");
     for(int i = 0; i < n_pti_max; i++)
-       pti_list[i] = new ParticleToInsert(lmp, enforce_single ? 1 : nspheres, fix_release);
+       pti_list[i] = new ParticleToInsert(lmp,nspheres);
 }
 
 /* ----------------------------------------------------------------------*/
 
-void FixTemplateMultiplespheres::randomize_ptilist(int n_random,int distribution_groupbit,int distorder)
+void FixTemplateMultiplespheres::randomize_ptilist(int n_random,int distribution_groupbit)
 {
     
     for(int i = 0; i < n_random; i++)
@@ -599,7 +462,7 @@ void FixTemplateMultiplespheres::randomize_ptilist(int n_random,int distribution
           pti->atom_type = atom_type;
           if(atom_type_sphere)
           {
-            vectorCopyN(atom_type_sphere,pti->atom_type_vector,nspheres);
+            vectorCopy3D(atom_type_sphere,pti->atom_type_vector);
             pti->atom_type_vector_flag = true;
           }
 
@@ -613,121 +476,5 @@ void FixTemplateMultiplespheres::randomize_ptilist(int n_random,int distribution
           vectorZeroize3D(pti->omega_ins);
 
           pti->groupbit = groupbit | distribution_groupbit; 
-
-          pti_list[i]->distorder = distorder;
-
-          if(bonded)
-          {
-            if (!pti_list[i]->fix_property)
-            {
-                pti_list[i]->fix_property = new FixPropertyAtom*[1];
-                if (pti_list[i]->fix_property_value)
-                    error->one(FLERR, "Internal error (fix property pti list)");
-                pti_list[i]->fix_property_value = new double*[1];
-                pti_list[i]->fix_property_value[0] = new double[1];
-                if (pti_list[i]->fix_property_nentry)
-                    error->one(FLERR, "Internal error (fix property pti list)");
-                pti_list[i]->fix_property_nentry = new int[1];
-            }
-            pti_list[i]->fix_property[0] = fix_bond_random_id;
-            
-            pti_list[i]->fix_property_value[0][0] = static_cast<double>(update->ntimestep)+random_insertion->uniform();
-            pti_list[i]->n_fix_property = 1;
-            pti_list[i]->fix_property_nentry[0] = 1;
-          }
     }
-}
-
-/* ----------------------------------------------------------------------*/
-
-void FixTemplateMultiplespheres::direct_set_ptlist(const int i, const void * const data, const int distribution_groupbit, const int distorder)
-{
-    const PARTICLE_PACKING::MultipleSphere * const ms = static_cast<const PARTICLE_PACKING::MultipleSphere * const>(data);
-    pti_list[i]->atom_type = ms->get_type();
-    const double radius = ms->get_radius();
-    
-    pti_list[i]->radius_ins[0] = radius;
-    pti_list[i]->density_ins = ms->get_density();
-    pti_list[i]->volume_ins = radius*radius*radius*4.1887902047863909;
-    pti_list[i]->mass_ins = pti_list[i]->density_ins*pti_list[i]->volume_ins;
-    pti_list[i]->id_ins = ms->get_id();
-
-    // set fix_property_atom
-    if (pti_list[i]->fix_property && ms->n_fix_properties() != (unsigned int)pti_list[i]->n_fix_property)
-        error->one(FLERR, "Inconsistent fix_property count");
-    if (pti_list[i]->fix_property_value)
-    {
-        if (!pti_list[i]->fix_property_nentry)
-            error->one(FLERR, "Nentry not available");
-        for (int j = 0; j < pti_list[i]->n_fix_property; j++)
-        {
-            if (ms->fix_property_nentries(j) != (unsigned int)pti_list[i]->fix_property_nentry[j])
-                error->one(FLERR, "Inconsistent fix property entries");
-        }
-    }
-
-    if (ms->n_fix_properties() > 0)
-    {
-        const int n = ms->n_fix_properties();
-        pti_list[i]->n_fix_property = n;
-        if (!pti_list[i]->fix_property)
-            pti_list[i]->fix_property = new FixPropertyAtom*[n];
-        const bool create_fpv = !pti_list[i]->fix_property_value;
-        if (create_fpv)
-            pti_list[i]->fix_property_value = new double*[n];
-        if (!pti_list[i]->fix_property_nentry)
-            pti_list[i]->fix_property_nentry = new int[n];
-        bool found_bonded = false;
-        for (int j = 0; j < n; j++)
-        {
-            pti_list[i]->fix_property[j] = ms->get_fix_property(j);
-            const int m = ms->fix_property_nentries(j);
-            if (create_fpv)
-                pti_list[i]->fix_property_value[j] = new double[m];
-            pti_list[i]->fix_property_nentry[j] = m;
-            for (int k = 0; k < m; k++)
-                pti_list[i]->fix_property_value[j][k] = ms->fix_property_value(j, k);
-            if (pti_list[i]->fix_property[j] == fix_bond_random_id)
-            {
-                found_bonded = true;
-                
-                pti_list[i]->fix_property_value[j][0] += static_cast<double>(update->ntimestep);
-            }
-        }
-        if (bonded && !found_bonded)
-            error->one(FLERR, "Bond random id could not be found");
-    }
-
-    // init insertion position
-    vectorZeroize3D(pti_list[i]->x_ins[0]);
-    vectorZeroize3D(pti_list[i]->v_ins);
-    vectorZeroize3D(pti_list[i]->omega_ins);
-
-    pti_list[i]->groupbit = groupbit | distribution_groupbit; 
-
-    pti_list[i]->distorder = distorder;
-    pti_list[i]->distorder = distorder;
-}
-
-/* ----------------------------------------------------------------------*/
-
-unsigned int FixTemplateMultiplespheres::generate_hash()
-{
-    unsigned int hash = 0;
-    unsigned int start = seed_orig*123457; // it's magic
-    if (atom_type_sphere)
-    {
-        for (int i = 0; i < nspheres; i++)
-            add_hash_value(atom_type_sphere[i], start, hash);
-    }
-    else
-        add_hash_value(atom_type, start, hash);
-    add_hash_value(nspheres, start, hash);
-    for (int i = 0; i < nspheres; i++)
-        add_hash_value(r_sphere[i], start, hash);
-    add_hash_value(pdf_density->rand_style(), start, hash);
-    add_hash_value(expectancy(pdf_density), start, hash);
-    add_hash_value(cubic_expectancy(pdf_density), start, hash);
-    add_hash_value(bonded ? 1 : 0, start, hash);
-    return hash;
 }

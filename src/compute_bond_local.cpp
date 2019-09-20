@@ -1,50 +1,18 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <string.h>
+#include "math.h"
+#include "string.h"
 #include "compute_bond_local.h"
 #include "atom.h"
 #include "atom_vec.h"
@@ -63,10 +31,10 @@ enum{DIST,ENG,FORCE};
 
 /* ---------------------------------------------------------------------- */
 
-ComputeBondLocal::ComputeBondLocal(LAMMPS *lmp, int &iarg, int narg, char **arg) :
-  Compute(lmp, iarg, narg, arg)
+ComputeBondLocal::ComputeBondLocal(LAMMPS *lmp, int narg, char **arg) :
+  Compute(lmp, narg, arg)
 {
-  if (narg < iarg+1) error->all(FLERR,"Illegal compute bond/local command");
+  if (narg < 4) error->all(FLERR,"Illegal compute bond/local command");
 
   if (atom->avec->bonds_allow == 0)
     error->all(FLERR,"Compute bond/local used when bonds are not allowed");
@@ -79,16 +47,11 @@ ComputeBondLocal::ComputeBondLocal(LAMMPS *lmp, int &iarg, int narg, char **arg)
   bstyle = new int[nvalues];
 
   nvalues = 0;
-  for (; iarg < narg; iarg++)
-  {
-      if (strcmp(arg[iarg],"dist") == 0)
-          bstyle[nvalues++] = DIST;
-      else if (strcmp(arg[iarg],"eng") == 0)
-          bstyle[nvalues++] = ENG;
-      else if (strcmp(arg[iarg],"force") == 0)
-          bstyle[nvalues++] = FORCE;
-      else
-          error->all(FLERR,"Invalid keyword in compute bond/local command");
+  for (int iarg = 3; iarg < narg; iarg++) {
+    if (strcmp(arg[iarg],"dist") == 0) bstyle[nvalues++] = DIST;
+    else if (strcmp(arg[iarg],"eng") == 0) bstyle[nvalues++] = ENG;
+    else if (strcmp(arg[iarg],"force") == 0) bstyle[nvalues++] = FORCE;
+    else error->all(FLERR,"Invalid keyword in compute bond/local command");
   }
 
   // set singleflag if need to call bond->single()

@@ -1,52 +1,28 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
@@ -54,8 +30,8 @@
    Richard Berger (JKU Linz)
 ------------------------------------------------------------------------- */
 
-#include <stdio.h>
-#include <string.h>
+#include "stdio.h"
+#include "string.h"
 #include "modify.h"
 #include "style_compute.h"
 #include "style_fix.h"
@@ -85,10 +61,10 @@ using namespace FixConst;
 Modify::Modify(LAMMPS *lmp) : Pointers(lmp)
 {
   nfix = maxfix = 0;
-  n_pre_initial_integrate = n_initial_integrate = n_post_integrate = 0;
+  n_initial_integrate = n_post_integrate = 0;
   n_pre_exchange = n_pre_neighbor = 0;
   n_pre_force = n_post_force = 0;
-  n_iterate_implicitly = n_pre_final_integrate = 0; 
+  n_iterate_implicitly = 0; 
   n_final_integrate = n_end_of_step = n_thermo_energy = 0;
   n_initial_integrate_respa = n_post_integrate_respa = 0;
   n_pre_force_respa = n_post_force_respa = n_final_integrate_respa = 0;
@@ -97,10 +73,10 @@ Modify::Modify(LAMMPS *lmp) : Pointers(lmp)
 
   fix = NULL;
   fmask = NULL;
-  list_pre_initial_integrate = list_initial_integrate = list_post_integrate = NULL;
+  list_initial_integrate = list_post_integrate = NULL;
   list_pre_exchange = list_pre_neighbor = NULL;
   list_pre_force = list_post_force = NULL;
-  list_iterate_implicitly = list_pre_final_integrate = NULL; 
+  list_iterate_implicitly = NULL; 
   list_final_integrate = list_end_of_step = NULL;
   list_thermo_energy = NULL;
   list_initial_integrate_respa = list_post_integrate_respa = NULL;
@@ -161,17 +137,15 @@ Modify::~Modify()
 
   // delete all computes
 
-  for (int i = ncompute-1; i >= 0; i--) delete compute[i];
+  for (int i = 0; i < ncompute; i++) delete compute[i];
   memory->sfree(compute);
 
-  delete [] list_pre_initial_integrate;
   delete [] list_initial_integrate;
   delete [] list_post_integrate;
   delete [] list_pre_exchange;
   delete [] list_pre_neighbor;
   delete [] list_pre_force;
   delete [] list_post_force;
-  delete [] list_pre_final_integrate;
   delete [] list_final_integrate;
   delete [] list_iterate_implicitly; 
   delete [] list_end_of_step;
@@ -209,15 +183,12 @@ void Modify::init()
 
   // create lists of fixes to call at each stage of run
 
-  list_init(PRE_INITIAL_INTEGRATE,n_pre_initial_integrate,list_pre_initial_integrate);
   list_init(INITIAL_INTEGRATE,n_initial_integrate,list_initial_integrate);
   list_init(POST_INTEGRATE,n_post_integrate,list_post_integrate);
-  list_init_pre_exchange(PRE_EXCHANGE,n_pre_exchange,list_pre_exchange);
-  //list_init(PRE_EXCHANGE,n_pre_exchange,list_pre_exchange);
+  list_init(PRE_EXCHANGE,n_pre_exchange,list_pre_exchange);
   list_init(PRE_NEIGHBOR,n_pre_neighbor,list_pre_neighbor);
   list_init(PRE_FORCE,n_pre_force,list_pre_force);
   list_init(POST_FORCE,n_post_force,list_post_force);
-  list_init(PRE_FINAL_INTEGRATE,n_pre_final_integrate,list_pre_final_integrate);
   list_init(FINAL_INTEGRATE,n_final_integrate,list_final_integrate);
   list_init(ITERATE_IMPLICITLY,n_iterate_implicitly,list_iterate_implicitly); 
   list_init_end_of_step(END_OF_STEP,n_end_of_step,list_end_of_step);
@@ -379,15 +350,6 @@ void Modify::setup_pre_force(int vflag)
 }
 
 /* ----------------------------------------------------------------------
-   pre_intial_integrate call, only for relevant fixes
-------------------------------------------------------------------------- */
-
-void Modify::pre_initial_integrate()
-{
-  call_method_on_fixes(&Fix::pre_initial_integrate, list_pre_initial_integrate, n_pre_initial_integrate);
-}
-
-/* ----------------------------------------------------------------------
    1st half of integrate call, only for relevant fixes
 ------------------------------------------------------------------------- */
 
@@ -457,15 +419,6 @@ bool Modify::iterate_implicitly()
         return true;
 
   return false;
-}
-
-/* ----------------------------------------------------------------------
-   pre_final_integrate call, only for relevant fixes
-------------------------------------------------------------------------- */
-
-void Modify::pre_final_integrate()
-{
-  call_method_on_fixes(&Fix::pre_final_integrate, list_pre_final_integrate, n_pre_final_integrate);
 }
 
 /* ----------------------------------------------------------------------
@@ -751,9 +704,6 @@ int Modify::min_reset_ref()
 
 void Modify::add_fix(int narg, char **arg, char *suffix)
 {
-  
-  if(update->ntimestep_reset_since_last_run && fix_restart_in_progress())
-    error->all(FLERR,"In case of restart, command 'reset_timestep' must come immediately before 'run'");
 
   if (narg < 3) error->all(FLERR,"Illegal fix command");
 
@@ -838,12 +788,6 @@ void Modify::add_fix(int narg, char **arg, char *suffix)
     fix[ifix] = fix_creator(lmp,narg,arg);
   }
 
-  if (fix[ifix] == NULL && strncmp(arg[2], "mesh/surface", 12) == 0)
-  {
-    FixCreator fix_creator = (*fix_map)["mesh/surface"];
-    fix[ifix] = fix_creator(lmp, narg, arg);
-  }
-
   if (fix[ifix] == NULL){ 
     char * errmsg = new char[30+strlen(arg[2])]; 
     sprintf(errmsg,"Invalid fix style: \"%s\"",arg[2]);
@@ -865,11 +809,7 @@ void Modify::add_fix(int narg, char **arg, char *suffix)
   {
     
     if (strcmp(id_restart_global[i],fix[ifix]->id) == 0 &&
-          (strcmp(style_restart_global[i],fix[ifix]->style) == 0 ||
-            (fix[ifix]->accepts_restart_data_from_style && strcmp(style_restart_global[i],fix[ifix]->accepts_restart_data_from_style) == 0)
-          )
-       )
-      {
+        strcmp(style_restart_global[i],fix[ifix]->style) == 0) {
           fix[ifix]->restart(state_restart_global[i]);
           fix[ifix]->recent_restart = 1; 
           if (comm->me == 0) {
@@ -885,13 +825,8 @@ void Modify::add_fix(int narg, char **arg, char *suffix)
   // if yes, loop over atoms so they can extract info from atom->extra array
 
   for (int i = 0; i < nfix_restart_peratom; i++)
-  {
     if (strcmp(id_restart_peratom[i],fix[ifix]->id) == 0 &&
-          (strcmp(style_restart_peratom[i],fix[ifix]->style) == 0 ||
-            (fix[ifix]->accepts_restart_data_from_style && strcmp(style_restart_peratom[i],fix[ifix]->accepts_restart_data_from_style) == 0)
-          )
-       )
-    {
+        strcmp(style_restart_peratom[i],fix[ifix]->style) == 0) {
       for (int j = 0; j < atom->nlocal; j++)
         fix[ifix]->unpack_restart(j,index_restart_peratom[i]);
       fix[ifix]->recent_restart = 1; 
@@ -901,12 +836,11 @@ void Modify::add_fix(int narg, char **arg, char *suffix)
                      "from restart file info\n");
         if (screen) fprintf(screen,str,fix[ifix]->id,fix[ifix]->style);
         if (logfile) fprintf(logfile,str,fix[ifix]->id,fix[ifix]->style);
-
       }
     }
-  }
 
   fix[ifix]->post_create(); 
+
 }
 
 /* ----------------------------------------------------------------------
@@ -1001,24 +935,19 @@ void Modify::add_compute(int narg, char **arg, char *suffix)
 
   compute[ncompute] = NULL;
 
-  if (suffix && lmp->suffix_enable)
-  {
-      char estyle[256];
-      sprintf(estyle,"%s/%s",arg[2],suffix);
-      if (compute_map->find(estyle) != compute_map->end())
-      {
-          ComputeCreator compute_creator = (*compute_map)[estyle];
-          int iarg = 0;
-          compute[ncompute] = compute_creator(lmp, iarg, narg, arg);
-      }
+  if (suffix && lmp->suffix_enable) {
+    char estyle[256];
+    sprintf(estyle,"%s/%s",arg[2],suffix);
+    if (compute_map->find(estyle) != compute_map->end()) {
+      ComputeCreator compute_creator = (*compute_map)[estyle];
+      compute[ncompute] = compute_creator(lmp,narg,arg);
+    }
   }
 
   if (compute[ncompute] == NULL &&
-      compute_map->find(arg[2]) != compute_map->end())
-  {
-      int iarg = 0;
-      ComputeCreator compute_creator = (*compute_map)[arg[2]];
-      compute[ncompute] = compute_creator(lmp, iarg, narg, arg);
+      compute_map->find(arg[2]) != compute_map->end()) {
+    ComputeCreator compute_creator = (*compute_map)[arg[2]];
+    compute[ncompute] = compute_creator(lmp,narg,arg);
   }
 
   if (compute[ncompute] == NULL) error->all(FLERR,"Invalid compute style");
@@ -1033,9 +962,9 @@ void Modify::add_compute(int narg, char **arg, char *suffix)
 ------------------------------------------------------------------------- */
 
 template <typename T>
-Compute *Modify::compute_creator(LAMMPS *lmp, int iarg, int narg, char **arg)
+Compute *Modify::compute_creator(LAMMPS *lmp, int narg, char **arg)
 {
-  return new T(lmp, iarg, narg,arg);
+  return new T(lmp,narg,arg);
 }
 
 /* ----------------------------------------------------------------------
@@ -1149,7 +1078,6 @@ void Modify::write_restart(FILE *fp)
   for (int i = 0; i < nfix; i++)
     if (fix[i]->restart_global) {
       if (me == 0) {
-        
         n = strlen(fix[i]->id) + 1;
         fwrite(&n,sizeof(int),1,fp);
         fwrite(fix[i]->id,sizeof(char),n,fp);
@@ -1170,7 +1098,6 @@ void Modify::write_restart(FILE *fp)
     if (fix[i]->restart_peratom) {
       int maxsize_restart = fix[i]->maxsize_restart();
       if (me == 0) {
-        
         n = strlen(fix[i]->id) + 1;
         fwrite(&n,sizeof(int),1,fp);
         fwrite(fix[i]->id,sizeof(char),n,fp);
@@ -1266,7 +1193,6 @@ int Modify::read_restart(FILE *fp)
     maxsize += n;
 
     index_restart_peratom[i] = i;
-
   }
 
   return maxsize;
@@ -1278,14 +1204,8 @@ int Modify::read_restart(FILE *fp)
 
 void Modify::restart_deallocate()
 {
-  
-  int n_ms = n_fixes_style("multisphere");
-  bool have_ms_in_restart = false;
-
   if (nfix_restart_global) {
     for (int i = 0; i < nfix_restart_global; i++) {
-      if(strncmp(style_restart_global[i],"multisphere",11) == 0)
-        have_ms_in_restart = true;
       delete [] id_restart_global[i];
       delete [] style_restart_global[i];
       delete [] state_restart_global[i];
@@ -1297,8 +1217,6 @@ void Modify::restart_deallocate()
 
   if (nfix_restart_peratom) {
     for (int i = 0; i < nfix_restart_peratom; i++) {
-      if(strncmp(style_restart_peratom[i],"multisphere",11) == 0)
-        have_ms_in_restart = true;
       delete [] id_restart_peratom[i];
       delete [] style_restart_peratom[i];
     }
@@ -1308,10 +1226,6 @@ void Modify::restart_deallocate()
   }
 
   nfix_restart_global = nfix_restart_peratom = 0;
-
-  if(0 == n_ms && have_ms_in_restart)
-    error->all(FLERR,"Restart data contains multi-sphere data, which was not restarted. In order to restart it,\n"
-                         "you have to place a fix multisphere/* command before the first run command in the input script\n");
 }
 
 /* ----------------------------------------------------------------------
@@ -1328,38 +1242,6 @@ void Modify::list_init(int mask, int &n, int *&list)
 
   n = 0;
   for (int i = 0; i < nfix; i++) if (fmask[i] & mask) list[n++] = i;
-}
-
-/* ----------------------------------------------------------------------
-   create list of fix indices for for pre_exchange fixes
-   have contacthistory fixes always come first so it can copy the data
-------------------------------------------------------------------------- */
-
-void Modify::list_init_pre_exchange(int mask, int &n, int *&list)
-{
-  delete [] list;
-
-  n = 0;
-  for (int i = 0; i < nfix; i++) if (fmask[i] & mask) n++;
-  list = new int[n];
-
-  n = 0;
-
-  for (int i = 0; i < nfix; i++) if (fmask[i] & mask)
-  {
-    if(0 == strncmp(fix[i]->style,"contacthistory",14))
-    //if(0 == strcmp(fix[i]->style,"contacthistory"))
-        list[n++] = i;
-  }
-
-  for (int i = 0; i < nfix; i++)
-  {
-      if(0 == strncmp(fix[i]->style,"contacthistory",14))
-      //if(0 == strcmp(fix[i]->style,"contacthistory"))
-        continue;
-
-      if (fmask[i] & mask) list[n++] = i;
-  }
 }
 
 /* ----------------------------------------------------------------------
@@ -1568,42 +1450,4 @@ void Modify::call_respa_method_on_fixes(FixMethodRESPA3 method, int arg1,
       (fix[ilist[i]]->*method)(arg1, arg2, arg3);
     }
   }
-}
-
-/* ----------------------------------------------------------------------
-   Updates all computes that requested it at the end of a run
-------------------------------------------------------------------------- */
-
-void Modify::update_computes_on_run_end()
-{
-    for (int i = 0; i < ncompute; i++)
-    {
-        if (compute[i]->update_on_run_end())
-        {
-            if (compute[i]->scalar_flag)
-            {
-                if (!(compute[i]->invoked_flag & INVOKED_SCALAR))
-                {
-                  compute[i]->compute_scalar();
-                  compute[i]->invoked_flag |= INVOKED_SCALAR;
-                }
-            }
-            if (compute[i]->vector_flag)
-            {
-                if (!(compute[i]->invoked_flag & INVOKED_VECTOR))
-                {
-                  compute[i]->compute_vector();
-                  compute[i]->invoked_flag |= INVOKED_VECTOR;
-                }
-            }
-            if (compute[i]->array_flag)
-            {
-                if (!(compute[i]->invoked_flag & INVOKED_ARRAY))
-                {
-                  compute[i]->compute_array();
-                  compute[i]->invoked_flag |= INVOKED_ARRAY;
-                }
-            }
-        }
-    }
 }

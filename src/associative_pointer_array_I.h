@@ -1,46 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
+   Richard Berger (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_ASSOCIATIVE_POINTER_ARRAY_I_H
@@ -109,11 +96,8 @@
   bool AssociativePointerArray<T>::sameLength(int _len)
   {
     for(int i = 0; i < numElem_; i++)
-    {
-        
         if(content_[i]->size() != _len)
             return false;
-    }
     return true;
   }
 
@@ -149,7 +133,7 @@
   }
 
   template<typename T>
-  T* AssociativePointerArray<T>::getBasePointerByIndex(int i) const
+  T* AssociativePointerArray<T>::getBasePointerByIndex(int i)
   {
     if(i >= size() || i < 0) return 0;
     else return content_[i];
@@ -186,7 +170,19 @@
   }
 
   template<typename T>
-  int AssociativePointerArray<T>::size() const
+  void AssociativePointerArray<T>::grow(int to)
+   {
+      int by;
+      for(int i = 0; i < maxElem_; i++)
+      {
+          by = to - getBasePointerByIndex(i)->size();
+          if(by > 0)
+            getBasePointerByIndex(i)->addUninitialized(by);
+      }
+  }
+
+  template<typename T>
+  int AssociativePointerArray<T>::size()
   {
     return numElem_;
   }
@@ -222,28 +218,6 @@
   {
       for(int i=0;i<numElem_;i++)
         content_[i]->addZero();
-  }
-
-  /* ----------------------------------------------------------------------
-   delete all elements in containers
-  ------------------------------------------------------------------------- */
-
-  template<typename T>
-  void AssociativePointerArray<T>::deleteAllElements()
-  {
-      for(int i=0;i<numElem_;i++)
-        content_[i]->clearContainer();
-  }
-
-  /* ----------------------------------------------------------------------
-   delete all restart elements in containers
-  ------------------------------------------------------------------------- */
-
-  template<typename T>
-  void AssociativePointerArray<T>::deleteRestart(bool scale,bool translate,bool rotate)
-  {
-      for(int i=0;i<numElem_;i++)
-        content_[i]->delRestart(scale,translate,rotate);
   }
 
   /* ----------------------------------------------------------------------
@@ -299,44 +273,6 @@
   {
       for(int i=0;i<numElem_;i++)
         content_[i]->clearReverse(scale,translate,rotate);
-  }
-
-  /* ----------------------------------------------------------------------
-   statistic functions
-  ------------------------------------------------------------------------- */
-
-  template<typename T>
-  bool AssociativePointerArray<T>::calcStatistics()
-  {
-      int ret = true;
-      const int  maxLevel = maxStatLevel();
-
-      for(int j=1;j<=maxLevel;j++)
-      {
-          // update scaling containers first by calculating their average
-          for(int i=0;i<numElem_;i++)
-              if( (content_[i]->getStatLevel() == j) && (content_[i]->isStatisticsContainer() && content_[i]->isScalingContainer()))
-                  ret = ret && content_[i]->updateScalingContainer();
-
-          // compute statistics for variables
-          for(int i=0;i<numElem_;i++)
-              if( (content_[i]->getStatLevel() == j) && (content_[i]->isStatisticsContainer() && !(content_[i]->isScalingContainer())))
-                  ret = ret && content_[i]->calcStatistics();
-      }
-
-      // return false if any returns false
-      return ret;
-  }
-
-  template<typename T>
-  int  AssociativePointerArray<T>::maxStatLevel() const
-  {
-      int maxLevel = 0;
-
-      for(int i=0;i<numElem_;i++)
-          maxLevel = std::max(maxLevel, content_[i]->getStatLevel());
-
-      return maxLevel;
   }
 
   /* ----------------------------------------------------------------------
@@ -408,7 +344,7 @@
   ------------------------------------------------------------------------- */
 
   template<typename T>
-  void AssociativePointerArray<T>::rotate(const double * const dQ)
+  void AssociativePointerArray<T>::rotate(double *dQ)
   {
       for(int i = 0; i < numElem_; i++)
         content_[i]->rotate(dQ);
@@ -422,14 +358,14 @@
   }
 
   template<typename T>
-  void AssociativePointerArray<T>::move(const double * const delta)
+  void AssociativePointerArray<T>::move(double *delta)
   {
       for(int i = 0; i < numElem_;i++)
         content_[i]->move(delta);
   }
 
   template<typename T>
-  void AssociativePointerArray<T>::moveElement(const int n, const double * const delta)
+  void AssociativePointerArray<T>::moveElement(int n,double *delta)
   {
       for(int i = 0; i < numElem_;i++)
         content_[i]->moveElement(n,delta);
@@ -440,7 +376,7 @@
   ------------------------------------------------------------------------- */
 
   template<typename T>
-  int AssociativePointerArray<T>::bufSize(int operation,bool scale,bool translate,bool rotate) const
+  int AssociativePointerArray<T>::bufSize(int operation,bool scale,bool translate,bool rotate)
   {
     int buf_size = 0;
     for(int i=0;i<numElem_;i++)
@@ -480,49 +416,39 @@
   }
 
   template<typename T>
-  int AssociativePointerArray<T>::pushElemListToBuffer(int n, int *list, int *wraplist, double *buf, int operation, std::list<std::string> * properties, double *dlo, double *dhi,bool scale,bool translate, bool rotate)
+  int AssociativePointerArray<T>::pushElemListToBuffer(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate)
   {
-      int nsend = 0;
-      for(int i=0;i<numElem_;i++)
-      {
-          if (!properties || getBasePointerByIndex(i)->matches_any_id(properties))
-              nsend += getBasePointerByIndex(i)->pushElemListToBuffer(n,list, wraplist, &buf[nsend],operation, dlo, dhi, scale,translate,rotate);
-      }
-      return nsend;
+    int nsend = 0;
+    for(int i=0;i<numElem_;i++)
+      nsend += getBasePointerByIndex(i)->pushElemListToBuffer(n,list,&buf[nsend],operation,scale,translate,rotate);
+    return nsend;
   }
 
   template<typename T>
-  int AssociativePointerArray<T>::popElemListFromBuffer(int first, int n, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate)
+  int AssociativePointerArray<T>::popElemListFromBuffer(int first, int n, double *buf, int operation,bool scale,bool translate, bool rotate)
   {
-      int nrecv = 0;
-      for(int i=0;i<numElem_;i++)
-          if (!properties || getBasePointerByIndex(i)->matches_any_id(properties))
-              nrecv += getBasePointerByIndex(i)->popElemListFromBuffer(first,n,&buf[nrecv],operation,scale,translate,rotate);
-      return nrecv;
+    int nrecv = 0;
+    for(int i=0;i<numElem_;i++)
+      nrecv += getBasePointerByIndex(i)->popElemListFromBuffer(first,n,&buf[nrecv],operation,scale,translate,rotate);
+    return nrecv;
   }
 
   template<typename T>
-  int AssociativePointerArray<T>::pushElemListToBufferReverse(int first, int n, double *buf, int operation, std::list<std::string> * properties,bool scale,bool translate, bool rotate)
+  int AssociativePointerArray<T>::pushElemListToBufferReverse(int first, int n, double *buf, int operation,bool scale,bool translate, bool rotate)
   {
-      int nsend = 0;
-      for(int i=0;i<numElem_;i++)
-      {
-          if (!properties || getBasePointerByIndex(i)->matches_any_id(properties))
-              nsend += getBasePointerByIndex(i)->pushElemListToBufferReverse(first,n,&buf[nsend],operation,scale,translate,rotate);
-      }
-      return nsend;
+    int nrecv = 0;
+    for(int i=0;i<numElem_;i++)
+      nrecv += getBasePointerByIndex(i)->pushElemListToBufferReverse(first,n,&buf[nrecv],operation,scale,translate,rotate);
+    return nrecv;
   }
 
   template<typename T>
-  int AssociativePointerArray<T>::popElemListFromBufferReverse(int n, int *list, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate)
+  int AssociativePointerArray<T>::popElemListFromBufferReverse(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate)
   {
-      int nrecv = 0;
-      for(int i=0;i<numElem_;i++)
-      {
-          if (!properties || getBasePointerByIndex(i)->matches_any_id(properties))
-              nrecv += getBasePointerByIndex(i)->popElemListFromBufferReverse(n,list,&buf[nrecv],operation,scale,translate,rotate);
-      }
-      return nrecv;
+    int nsend = 0;
+    for(int i=0;i<numElem_;i++)
+      nsend += getBasePointerByIndex(i)->popElemListFromBufferReverse(n,list,&buf[nsend],operation,scale,translate,rotate);
+    return nsend;
   }
 
   /* ----------------------------------------------------------------------
@@ -530,14 +456,11 @@
   ------------------------------------------------------------------------- */
 
   template<typename T>
-  int AssociativePointerArray<T>::elemBufSize(int operation, std::list<std::string> * properties, bool scale,bool translate,bool rotate)
+  int AssociativePointerArray<T>::elemBufSize(int operation,bool scale,bool translate,bool rotate)
   {
     int buf_size = 0;
     for(int i=0;i<numElem_;i++)
-    {
-        if (!properties || getBasePointerByIndex(i)->matches_any_id(properties))
-            buf_size += getBasePointerByIndex(i)->elemBufSize(operation,scale,translate,rotate);
-    }
+      buf_size += getBasePointerByIndex(i)->elemBufSize(operation,scale,translate,rotate);
     return buf_size;
   }
 

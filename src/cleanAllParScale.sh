@@ -7,11 +7,7 @@
 
 currDir=$PWD
 cp *pascal* PASCAL
-make no-PASCAL
 
 cp Makefile.package.empty Makefile.package
 
-
-rm lmp_*
-rm *.so *.a
-
+make no-PASCAL

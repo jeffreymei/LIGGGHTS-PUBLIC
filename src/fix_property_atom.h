@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -56,9 +40,7 @@ namespace LAMMPS_NS {
 enum
 {
    FIXPROPERTY_ATOM_SCALAR = 0,
-   FIXPROPERTY_ATOM_VECTOR = 1,
-   FIXPROPERTY_ATOM_VECTOR2D = 2,
-   FIXPROPERTY_ATOM_QUATERNION = 3
+   FIXPROPERTY_ATOM_VECTOR = 1
 };
 
 class FixPropertyAtom : public Fix {
@@ -81,7 +63,7 @@ class FixPropertyAtom : public Fix {
   void pre_set_arrays();
   virtual void set_arrays(int);
 
-  void set_all(double value,bool ghost = true);
+  void set_all(double value);
 
   void write_restart(FILE *);
   virtual void restart(char *);
@@ -96,39 +78,24 @@ class FixPropertyAtom : public Fix {
   void unpack_comm(int, int, double *);
   int pack_reverse_comm(int, int, double *);
   void unpack_reverse_comm(int, int *, double *);
-  virtual double compute_vector(int n);
+  double compute_vector(int n);
 
   virtual void mark_tracers(int ilo, int ihi) { UNUSED(ilo); UNUSED(ihi); }
-
-  inline void set_internal()
-  { internal = true; }
-
-  inline bool get_internal()
-  { return internal; }
-
-  inline int get_nvalues()
-  { return nvalues; }
 
  protected:
   void parse_args(int narg, char **arg);
 
  private:
   char *variablename;   // name of the variable (used for identification by other fixes)
-  int data_style;       // 0 if a scalar is registered, 1 if vector
+  int data_style;            // 0 if a scalar is registered, 1 if vector
   int commGhost;        // 1 if communicated to ghost particles (via pack_comm/unpack_comm), 0 if not
   int commGhostRev;     // 1 if rev communicated from ghost particles (via pack_comm_rev/unpack_comm_rev), 0 if not
   int nvalues;
-  int nmaxGrown_;
   double *defaultvalues; // default values at particle creation
 
   // in case of initialization from property - name of property
   char *propertyname;
   double *property;
-
-  double extra_value;
-
-  // switch for auto-output
-  bool internal;
 }; //end class
 
 }

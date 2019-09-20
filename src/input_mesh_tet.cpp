@@ -1,48 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "mpi.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "ctype.h"
 #include "input.h"
 #include "modify.h"
@@ -51,7 +35,7 @@
 #include "domain.h"
 #include "comm.h"
 #include "memory.h"
-#include <cmath>
+#include "math.h"
 #include "vector_liggghts.h"
 #include "input_mesh_tet.h"
 #include "region_mesh_tet.h"
@@ -87,7 +71,7 @@ void InputMeshTet::meshtetfile(const char *filename, class RegTetMesh *mesh, boo
 
     nonlammps_file = fopen(filename,"r");
     if (nonlammps_file == NULL) {
-      char str[512];
+      char str[128];
       sprintf(str,"Cannot open mesh file %s",filename);
       error->one(FLERR,str);
     }
@@ -126,12 +110,6 @@ void InputMeshTet::meshtetfile_vtk(class RegTetMesh *mesh)
   int nLines = 0;
 
   int flag_other_than_tet = 0;
-
-  bool allPointsRead = false, allCellsRead = false;
-  int lastPointLine = 0, lastCellLine = 0;
-
-  if (!domain->box_exist)
-      error->all(FLERR,"Cannot load mesh before simulation box is defined.");
 
   while (1) {
 
@@ -214,35 +192,29 @@ void InputMeshTet::meshtetfile_vtk(class RegTetMesh *mesh)
         continue;
     }
 
-    if (!allPointsRead)
+    if(iLine <= 4+npoints)
     {
-        if(narg%3 != 0) error->all(FLERR,"Expecting 3 values for each point in 'POINTS' section of ASCII VTK mesh file, cannot continue");
+        if(narg != 3) error->all(FLERR,"Expecting 3 values for each point in 'POINTS' section of ASCII VTK mesh file, cannot continue");
 
-        for (int p=0;p<narg;p=p+3) {
-            //read the vertex, translate and scale it
-            for (int j=0;j<3;j++) vert_before_rot[j]=(atof(arg[p+j])+(mesh->off_fact[j]))*(mesh->scale_fact);
+        //read the vertex, translate and scale it
+        for (int j=0;j<3;j++) vert_before_rot[j]=(atof(arg[j])+(mesh->off_fact[j]))*(mesh->scale_fact);
 
-            //rotate the vertex
-            vert_after_rot[0] = vert_before_rot[0]*cos(phiy)*cos(phiz)+vert_before_rot[1]*(cos(phiz)*sin(phix)*sin(phiy)-cos(phix)*sin(phiz))+vert_before_rot[2]*(cos(phix)*cos(phiz)*sin(phiy)+sin(phix)*sin(phiz));
-            vert_after_rot[1] = vert_before_rot[0]*cos(phiy)*sin(phiz)+vert_before_rot[2]*(-cos(phiz)*sin(phix)+cos(phix)*sin(phiy)*sin(phiz))+vert_before_rot[1]*(cos(phix)*cos(phiz)+sin(phix)*sin(phiy)*sin(phiz));
-            vert_after_rot[2] = vert_before_rot[2]*cos(phix)*cos(phiy)+vert_before_rot[1]*cos(phiy)*sin(phix)-vert_before_rot[0]*sin(phiy);
+        //rotate the vertex
+        vert_after_rot[0] = vert_before_rot[0]*cos(phiy)*cos(phiz)+vert_before_rot[1]*(cos(phiz)*sin(phix)*sin(phiy)-cos(phix)*sin(phiz))+vert_before_rot[2]*(cos(phix)*cos(phiz)*sin(phiy)+sin(phix)*sin(phiz));
+        vert_after_rot[1] = vert_before_rot[0]*cos(phiy)*sin(phiz)+vert_before_rot[2]*(-cos(phiz)*sin(phix)+cos(phix)*sin(phiy)*sin(phiz))+vert_before_rot[1]*(cos(phix)*cos(phiz)+sin(phix)*sin(phiy)*sin(phiz));
+        vert_after_rot[2] = vert_before_rot[2]*cos(phix)*cos(phiy)+vert_before_rot[1]*cos(phiy)*sin(phix)-vert_before_rot[0]*sin(phiy);
 
-            if (!domain->is_in_domain(vert_after_rot))
-                flag_outside = 1;
+        if (!domain->is_in_domain(vert_after_rot))
+            flag_outside = 1;
 
-            //store the vertex
-            vectorCopy3D(vert_after_rot,points[ipoint]);
-            ipoint++;
-        }
-        if (ipoint == npoints) {
-            allPointsRead = true;
-            lastPointLine = iLine;
-        }
+        //store the vertex
 
+        vectorCopy3D(vert_after_rot,points[ipoint]);
+        ipoint++;
         continue;
     }
 
-    if(allPointsRead && iLine == lastPointLine+1)
+    if(iLine == 5+npoints)
     {
         if(strcmp(arg[0],"CELLS")) error->all(FLERR,"Expecting 'CELLS' section in ASCII VTK mesh file, cannot continue");
         ncells = atoi(arg[1]);
@@ -252,7 +224,7 @@ void InputMeshTet::meshtetfile_vtk(class RegTetMesh *mesh)
     }
 
     //copy data of all which have 4 values - can be tet, quad, poly_line or triangle_strip
-    if(!allCellsRead)
+    if(iLine <= 5+npoints+ncells)
     {
         if(narg == 5)
         {
@@ -265,15 +237,10 @@ void InputMeshTet::meshtetfile_vtk(class RegTetMesh *mesh)
         }
 
         icell++;
-        if (icell == ncells) {
-            allCellsRead = true;
-            lastCellLine = iLine;
-        }
-
         continue;
     }
 
-    if(allCellsRead && iLine == lastCellLine+1)
+    if(iLine == 6+npoints+ncells)
     {
         if(strcmp(arg[0],"CELL_TYPES")) error->all(FLERR,"Expecting 'CELL_TYPES' section in ASCII VTK mesh file, cannot continue");
         if(ncells != atoi(arg[1]))  error->all(FLERR,"Inconsistency in 'CELL_TYPES' section in ASCII VTK mesh file, cannot continue");
@@ -283,7 +250,7 @@ void InputMeshTet::meshtetfile_vtk(class RegTetMesh *mesh)
     }
 
     //only take tetraeders (cell type 10 according to VTK standard) - count them
-    if(allCellsRead && iLine <= lastCellLine+1+ncells)
+    if(iLine <= 6+npoints+2*ncells)
     {
         if(strcmp(arg[0],"10"))
         {

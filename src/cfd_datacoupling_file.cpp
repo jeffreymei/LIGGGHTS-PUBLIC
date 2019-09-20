@@ -1,47 +1,31 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #include "sys/stat.h"
-#include <string.h>
-#include <stdlib.h>
+#include "string.h"
+#include "stdlib.h"
 #include "atom.h"
 #include "comm.h"
 #include "update.h"
@@ -49,7 +33,7 @@
 #include "error.h"
 #include "memory.h"
 #include "modify.h"
-#include <cmath>
+#include "math.h"
 #include "vector_liggghts.h"
 #include "fix_property_atom.h"
 #include "fix_property_global.h"
@@ -65,6 +49,7 @@
 #endif
 
 using namespace LAMMPS_NS;
+using namespace std;
 
 /* ---------------------------------------------------------------------- */
 
@@ -248,7 +233,7 @@ void CfdDatacouplingFile::readVectorData(const char *name, double ** field)
     while (stat(file,&st)) sleep(10);
 
     // set file pointer
-    std::ifstream inputPtr(file);
+    ifstream inputPtr(file);
 
     // skip lines starting with #
     while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
@@ -282,7 +267,7 @@ void CfdDatacouplingFile::readScalarData(const char* name, double *field)
     while (stat(file,&st)) sleep(10);
 
     // set file pointer
-    std::ifstream inputPtr(file);
+    ifstream inputPtr(file);
 
     // skip lines starting with #
     while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
@@ -317,7 +302,7 @@ void CfdDatacouplingFile::readGlobalArrayData(const char *name, double ** field,
     while (stat(file,&st)) sleep(10);
 
     // set file pointerfrom
-    std::ifstream inputPtr(file);
+    ifstream inputPtr(file);
 
     // skip lines starting with #
     while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
@@ -359,7 +344,7 @@ void CfdDatacouplingFile::readGlobalVectorData(const char* name, double *field, 
 
     // set file pointer
     int l1;
-    std::ifstream inputPtr(file);
+    ifstream inputPtr(file);
 
     // skip lines starting with #
     while(inputPtr.peek() == '#')  inputPtr.ignore(1000,'\n');
@@ -394,15 +379,15 @@ void CfdDatacouplingFile::writeVectorData(const char *name,  double ** field)
     }
 
     // set file pointer
-    std::ofstream outputPtr(file);
+    ofstream outputPtr(file);
 
     // write data to file
     int numberOfParticles = atom->nlocal;
-    outputPtr << numberOfParticles << std::endl;
+    outputPtr << numberOfParticles << endl;
     for(int index = 0;index < numberOfParticles; ++index)
     {
         for(int i=0;i<3;i++) outputPtr << field[index][i] << " ";
-        outputPtr << std::endl;
+        outputPtr << endl;
     }
 
     // clean up outputStream and rename file
@@ -425,14 +410,14 @@ void CfdDatacouplingFile::writeScalarData(const char* name, double * field)
     }
 
     // set file pointer
-    std::ofstream outputPtr(file);
+    ofstream outputPtr(file);
 
     // write data to file
     int numberOfParticles = atom->nlocal;
-    outputPtr << numberOfParticles << std::endl;
+    outputPtr << numberOfParticles << endl;
     for(int index = 0;index < numberOfParticles; ++index)
     {
-        outputPtr << field[index] << std::endl;
+        outputPtr << field[index] << endl;
     }
 
     // clean up outputStream and rename file
@@ -457,14 +442,14 @@ void CfdDatacouplingFile::writeGlobalVectorData(const char *name,  double *field
     }
 
     // set file pointer
-    std::ofstream outputPtr(file);
+    ofstream outputPtr(file);
 
     // write data to file
-    outputPtr << len << std::endl;
+    outputPtr << len << endl;
     for(int index = 0;index < len; ++index)
     {
         outputPtr << field[index];
-        outputPtr << std::endl;
+        outputPtr << endl;
     }
 
     // clean up outputStream and rename file
@@ -489,15 +474,15 @@ void CfdDatacouplingFile::writeGlobalArrayData(const char* name, double **field,
     }
 
     // set file pointer
-    std::ofstream outputPtr(file);
+    ofstream outputPtr(file);
 
     // write data to file
-    outputPtr << len1 << std::endl;
-    outputPtr << len2 << std::endl;
+    outputPtr << len1 << endl;
+    outputPtr << len2 << endl;
     for(int index = 0;index < len1; ++index)
     {
         for(int i=0;i<len2;i++) outputPtr << field[index][i] << " ";
-        outputPtr << std::endl;
+        outputPtr << endl;
     }
 
     // clean up outputStream and rename file

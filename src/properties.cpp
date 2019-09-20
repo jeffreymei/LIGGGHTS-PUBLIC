@@ -1,57 +1,39 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2015-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if no contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2015-     DCS Computing GmbH, Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <string.h>
+#include "string.h"
 #include "atom.h"
-#include <mpi.h>
-#include <cmath>
+#include "mpi.h"
+#include "math.h"
 #include "modify.h"
 #include "properties.h"
 #include "error.h"
 #include "memory.h"
 #include "fix_multisphere.h"
+#include "multisphere.h"
 #include "fix_property_atom.h"
 #include "fix_property_global.h"
-
-#define BIG 1e20
-#define SMALL 1e-6
 
 using namespace LAMMPS_NS;
 
@@ -59,11 +41,7 @@ using namespace LAMMPS_NS;
 
 Properties::Properties(LAMMPS *lmp): Pointers(lmp),
   ms_(0),
-  ms_data_(0),
-  mintype_(-1),
-  maxtype_(-1),
-  allow_soft_particles_(false),
-  allow_hard_particles_(false)
+  ms_data_(0)
 {
 }
 
@@ -83,15 +61,15 @@ Properties::~Properties()
 int Properties::max_type()
 {
   // loop over all particles to check how many atom types are present
-  mintype_ = 100000;
-  maxtype_ = 1;
+  mintype = 100000;
+  maxtype = 1;
 
   for (int i=0;i<atom->nlocal;i++)
   {
-      if (atom->type[i]<mintype_)
-        mintype_=atom->type[i];
-      if (atom->type[i]>maxtype_)
-        maxtype_=atom->type[i];
+      if (atom->type[i]<mintype)
+        mintype=atom->type[i];
+      if (atom->type[i]>maxtype)
+        maxtype=atom->type[i];
   }
 
   // check all fixes
@@ -100,133 +78,26 @@ int Properties::max_type()
   {
       // checks
       Fix *fix = modify->fix[i];
-      if(fix->min_type() > 0 &&  fix->min_type() < mintype_)
-        mintype_ = fix->min_type();
-      if(fix->max_type() > 0 &&  fix->max_type() > maxtype_)
-        maxtype_ = fix->max_type();
+      if(fix->min_type() > 0 &&  fix->min_type() < mintype)
+        mintype = fix->min_type();
+      if(fix->max_type() > 0 &&  fix->max_type() > maxtype)
+        maxtype = fix->max_type();
   }
 
   //Get min/max from other procs
   int mintype_all,maxtype_all;
-  MPI_Allreduce(&mintype_,&mintype_all, 1, MPI_INT, MPI_MIN, world);
-  MPI_Allreduce(&maxtype_,&maxtype_all, 1, MPI_INT, MPI_MAX, world);
-  mintype_ = mintype_all;
-  maxtype_ = maxtype_all;
+  MPI_Allreduce(&mintype,&mintype_all, 1, MPI_INT, MPI_MIN, world);
+  MPI_Allreduce(&maxtype,&maxtype_all, 1, MPI_INT, MPI_MAX, world);
+  mintype = mintype_all;
+  maxtype = maxtype_all;
 
   //error check
-  if(!lmp->wb)
-  {
-      if(mintype_ != 1)
-        error->all(FLERR,"Atom types must start from 1 for granular simulations");
-      if(maxtype_ > atom->ntypes)
-        error->all(FLERR,"Please increase the number of atom types in the 'create_box' command to match the number of atom types you use in the simulation");
-  }
-  else
-  {
-      if(mintype_ != 1)
-        error->all(FLERR,"Materials defined but not used in the simulation as particle or wall material must be the last materials defined");
-      if(maxtype_ > atom->ntypes)
-        error->all(FLERR,"Please increase the number of atom types in the 'create_box' command to match the number of atom types you use in the simulation");
-  }
-  return maxtype_;
-}
+  if(mintype != 1)
+    error->all(FLERR,"Atom types must start from 1 for granular simulations");
+  if(maxtype > atom->ntypes)
+    error->all(FLERR,"Please increase the number of atom types in the 'create_box' command to match the number of atom types you use in the simulation");
 
-/* ----------------------------------------------------------------------
-   get minimum of radii used in the simulation
-------------------------------------------------------------------------- */
-
-double Properties::min_radius()
-{
-  const double maxtype = max_type();
-  double minRadius = BIG;
-
-  // check local particles
-  for (int i=0;i<atom->nlocal;i++)
-  {
-    const double irad = atom->radius[i];
-    // minimum
-    if (irad < minRadius)
-      minRadius = irad;
-  }
-
-  // check all fixes
-  // such as fix insert, fix change/type, fix wall, fix pour
-  for(int i=0;i<modify->nfix;i++)
-  {
-      // checks
-      Fix *fix = modify->fix[i];
-
-      if(!fix->use_rad_for_cut_neigh_and_ghost())
-          continue;
-
-      // loop over all types since min_rad(int) and max_rad(int) need a type
-      for (int j=1;j<maxtype+1;j++)
-      {
-        const double f_minrad = fix->min_rad(j);
-        if(f_minrad > SMALL &&  f_minrad < minRadius)
-          minRadius = f_minrad;
-      }
-  }
-
-  //Get min/max from other procs
-  double minRadius_all;
-  MPI_Allreduce(&minRadius,&minRadius_all, 1, MPI_DOUBLE, MPI_MIN, world);
-  minRadius = minRadius_all;
-
-  //error check
-  if(minRadius <= SMALL)
-    error->all(FLERR,"Atom radius must be bigger than zero for granular simulations");
-
-  return  minRadius;
-}
-
-/* ----------------------------------------------------------------------
-   get maximum of radii used in the simulation
-------------------------------------------------------------------------- */
-
-double Properties::max_radius()
-{
-  const double maxtype = max_type();
-  double maxRadius = -1.0;
-
-  // check local particles
-  for (int i=0;i<atom->nlocal;i++)
-  {
-    const double irad = atom->radius[i];
-    // maximum
-    if (irad > maxRadius)
-      maxRadius = irad;
-  }
-
-  // check all fixes
-  // such as fix insert, fix change/type, fix wall, fix pour
-  for(int i=0;i<modify->nfix;i++)
-  {
-      // checks
-      Fix *fix = modify->fix[i];
-
-      if(!fix->use_rad_for_cut_neigh_and_ghost())
-          continue;
-
-      // loop over all types since min_rad(int) and max_rad(int) need a type
-      for (int j=1;j<maxtype+1;j++)
-      {
-        const double f_maxrad = fix->max_rad(j);
-        if(f_maxrad > SMALL &&  f_maxrad > maxRadius)
-          maxRadius = f_maxrad;
-      }
-  }
-
-  //Get min/max from other procs
-  double maxRadius_all;
-  MPI_Allreduce(&maxRadius,&maxRadius_all, 1, MPI_DOUBLE, MPI_MAX, world);
-  maxRadius = maxRadius_all;
-
-  //error check
-  if(maxRadius <= SMALL)
-    error->all(FLERR,"Atom radius must be bigger than zero for granular simulations");
-
-  return  maxRadius;
+  return maxtype;
 }
 
 /* ----------------------------------------------------------------------
@@ -252,11 +123,6 @@ void* Properties::find_property(const char *name, const char *type, int &len1, i
         // check if length correct
         if(((strcmp(type,"scalar-atom") == 0) && (len2 != 1)) || ((strcmp(type,"vector-atom") == 0) && (len2 != 3)))
             return NULL;
-        else if(ptr && strstr(type,"multisphere"))
-        {
-            error->one(FLERR,"mismatch of data found and type specified");
-            return NULL;
-        }
         return ptr;
     }
 
@@ -264,7 +130,7 @@ void* Properties::find_property(const char *name, const char *type, int &len1, i
     // may come from a fix multisphere
     // also handles scalar-multisphere and vector-multisphere
 
-    ms_ = static_cast<FixMultisphere*>(modify->find_fix_style("multisphere",0));
+    ms_ = static_cast<FixMultisphere*>(modify->find_fix_style_strict("multisphere",0));
     if(ms_) ms_data_ = &ms_->data();
 
     if(ms_)
@@ -272,15 +138,9 @@ void* Properties::find_property(const char *name, const char *type, int &len1, i
         ptr = ms_->extract(name,len1,len2);
         if(((strcmp(type,"scalar-multisphere") == 0) && (len2 != 1)) || ((strcmp(type,"vector-multisphere") == 0) && (len2 != 3)))
             return NULL;
-        
-        else if(ptr && (strcmp(name,"body") && strstr(type,"atom")))
-        {
-            error->one(FLERR,"mismatch of data found and type specified");
-            return NULL;
-        }
 
         if(ptr || ((len1 >= 0) && (len2 >= 0)))
-            return ptr;
+        return ptr;
     }
 
     // possiblility 3

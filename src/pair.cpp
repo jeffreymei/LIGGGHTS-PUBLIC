@@ -1,60 +1,28 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
    Contributing author: Paul Crozier (SNL)
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
+#include "mpi.h"
 #include "ctype.h"
 #include "float.h"
 #include "limits.h"
-#include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "pair.h"
 #include "atom.h"
 #include "neighbor.h"
@@ -319,7 +287,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
   double qqrd2e = force->qqrd2e;
 
   if (force->kspace == NULL)
-    error->all(FLERR,"Pair style requires a KSpace style");
+    error->all(FLERR,"Pair style requres a KSpace style");
   double g_ewald = force->kspace->g_ewald;
 
   double cut_coulsq = cut_coul * cut_coul;
@@ -662,14 +630,15 @@ void Pair::free_disp_tables()
 
 double Pair::mix_energy(double eps1, double eps2, double sig1, double sig2)
 {
+  double value = 0.0;
   if (mix_flag == GEOMETRIC)
-    return sqrt(eps1*eps2);
+    value = sqrt(eps1*eps2);
   else if (mix_flag == ARITHMETIC)
-    return sqrt(eps1*eps2);
+    value = sqrt(eps1*eps2);
   else if (mix_flag == SIXTHPOWER)
-    return (2.0 * sqrt(eps1*eps2) *
-      pow(sig1,3.0) * pow(sig2,3.0) / (pow(sig1,6.0) + pow(sig2,6.0)));
-  else return 0.0;
+    value = 2.0 * sqrt(eps1*eps2) *
+      pow(sig1,3.0) * pow(sig2,3.0) / (pow(sig1,6.0) + pow(sig2,6.0));
+  return value;
 }
 
 /* ----------------------------------------------------------------------
@@ -678,13 +647,14 @@ double Pair::mix_energy(double eps1, double eps2, double sig1, double sig2)
 
 double Pair::mix_distance(double sig1, double sig2)
 {
+  double value = 0.0;
   if (mix_flag == GEOMETRIC)
-    return sqrt(sig1*sig2);
+    value = sqrt(sig1*sig2);
   else if (mix_flag == ARITHMETIC)
-    return (0.5 * (sig1+sig2));
+    value = 0.5 * (sig1+sig2);
   else if (mix_flag == SIXTHPOWER)
-    return pow((0.5 * (pow(sig1,6.0) + pow(sig2,6.0))),1.0/6.0);
-  else return 0.0;
+    value = pow((0.5 * (pow(sig1,6.0) + pow(sig2,6.0))),1.0/6.0);
+  return value;
 }
 
 /* ---------------------------------------------------------------------- */

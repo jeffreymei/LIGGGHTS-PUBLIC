@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #include "fix_heat_gran.h"
@@ -49,7 +33,7 @@
 #include "math_extra.h"
 #include "modify.h"
 #include "pair_gran.h"
-#include <stdlib.h>
+#include "stdlib.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -128,20 +112,12 @@ void FixHeatGran::post_create()
     newarg[14] = "thermalCapacity";
     modify->add_fix(15,(char**)newarg);
   }
-
-  fix_temp = static_cast<FixPropertyAtom*>(modify->find_fix_property("Temp","property/atom","scalar",0,0,style));
-  fix_heatFlux = static_cast<FixPropertyAtom*>(modify->find_fix_property("heatFlux","property/atom","scalar",0,0,style));
-  fix_heatSource = static_cast<FixPropertyAtom*>(modify->find_fix_property("heatSource","property/atom","scalar",0,0,style));
-  fix_directionalHeatFlux = static_cast<FixPropertyAtom*>(modify->find_fix_property("directionalHeatFlux","property/atom","vector",0,0,style));
-
-  if(!fix_temp || !fix_heatFlux || !fix_heatSource || !fix_directionalHeatFlux)
-    error->one(FLERR,"internal error");
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixHeatGran::updatePtrs()
-{
+void FixHeatGran::updatePtrs(){
+
   Temp = fix_temp->vector_atom;
   vector_atom = Temp; 
 
@@ -154,9 +130,9 @@ void FixHeatGran::updatePtrs()
 
 void FixHeatGran::init()
 {
-  
+
   if (!atom->radius_flag || !atom->rmass_flag)
-    error->fix_error(FLERR,this,"must use a granular atom style ");
+    error->all(FLERR,"Please use a granular atom style for fix heat/gran");
 
     // check if a fix of this style already exists
   if(modify->n_fixes_style(style) > 1)
@@ -175,9 +151,6 @@ void FixHeatGran::init()
   fix_heatFlux = static_cast<FixPropertyAtom*>(modify->find_fix_property("heatFlux","property/atom","scalar",0,0,style));
   fix_heatSource = static_cast<FixPropertyAtom*>(modify->find_fix_property("heatSource","property/atom","scalar",0,0,style));
   fix_directionalHeatFlux = static_cast<FixPropertyAtom*>(modify->find_fix_property("directionalHeatFlux","property/atom","vector",0,0,style));
-
-  if(!fix_temp || !fix_heatFlux || !fix_heatSource || !fix_directionalHeatFlux)
-    error->one(FLERR,"internal error");
 
   updatePtrs();
 }
@@ -199,13 +172,12 @@ void FixHeatGran::initial_integrate(int vflag)
 
   //reset heat flux
   //sources are not reset
-  //int *mask = atom->mask;
+  int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
   for (int i = 0; i < nlocal; i++)
   {
-
-     //if (mask[i] & groupbit)
+     if (mask[i] & groupbit)
      {
         directionalHeatFlux[i][0] = 0.;
         directionalHeatFlux[i][1] = 0.;

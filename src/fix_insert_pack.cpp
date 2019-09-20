@@ -1,48 +1,31 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2015 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdlib.h"
+#include "string.h"
 #include "fix_insert_pack.h"
 #include "atom.h"
 #include "atom_vec.h"
@@ -130,16 +113,6 @@ FixInsertPack::FixInsertPack(LAMMPS *lmp, int narg, char **arg) :
         error->fix_error(FLERR,this,"expecting 'yes' or 'no' after 'warn_region'");
       iarg += 2;
       hasargs = true;
-    } else if (strcmp(arg[iarg],"check_dist_from_subdomain_border") == 0) {
-      if (iarg+2 > narg) error->fix_error(FLERR,this,"");
-      if(strcmp(arg[iarg+1],"yes") == 0)
-        check_dist_from_subdomain_border_ = true;
-      else if(strcmp(arg[iarg+1],"no") == 0)
-        check_dist_from_subdomain_border_ = false;
-      else
-        error->fix_error(FLERR,this,"expecting 'yes' or 'no' after 'check_dist_from_subdomain_border'");
-      iarg += 2;
-      hasargs = true;
     } else if(strcmp(style,"insert/pack") == 0)
         error->fix_error(FLERR,this,"unknown keyword");
   }
@@ -172,8 +145,6 @@ void FixInsertPack::init_defaults()
 
       insertion_ratio = 0.;
 
-      check_dist_from_subdomain_border_ = true;
-
       warn_region = true;
 }
 
@@ -187,7 +158,7 @@ void FixInsertPack::init()
     {
         int iregion = domain->find_region(idregion);
         if (iregion == -1)
-            error->fix_error(FLERR,this,"regions used by this command must not be deleted");
+            error->fix_error(FLERR,this,"region ID does not exist");
         ins_region = domain->regions[iregion];
     }
 }
@@ -204,8 +175,6 @@ void FixInsertPack::calc_insertion_properties()
     ins_region->reset_random(seed + SEED_OFFSET);
 
     calc_region_volume_local();
-    //if(comm->me == 0)
-    //  printf("Total volume of the insertion region: %e\n",region_volume);
     if(region_volume <= 0. || region_volume_local < 0. || (region_volume_local - region_volume)/region_volume > 1e-3 )
         error->one(FLERR,"Fix insert: Region volume calculation with MC failed");
 
@@ -337,8 +306,6 @@ int FixInsertPack::calc_ninsert_this()
       insertion_ratio = mass_region / masstotal_region;
   }
   else error->one(FLERR,"Internal error in FixInsertPack::calc_ninsert_this()");
-  //if(comm->me == 0)
-  //  printf("Target number of particles to be inserted: %d\n", ninsert_this);
 
   // can be < 0 due to overflow, round-off etc
   if(ninsert_this < -200000)
@@ -378,19 +345,6 @@ inline int FixInsertPack::is_nearby(int i)
 
     if(ins_region->match_expandby_cut(pos,cut)) return 1;
     return 0;
-}
-
-/* ---------------------------------------------------------------------- */
-
-BoundingBox FixInsertPack::getBoundingBox() {
-  BoundingBox bb(ins_region->extent_xlo, ins_region->extent_xhi,
-                 ins_region->extent_ylo, ins_region->extent_yhi,
-                 ins_region->extent_zlo, ins_region->extent_zhi);
-
-  double extend = 2*maxrad /*cut*/ + this->extend_cut_ghost(); 
-  bb.shrinkToSubbox(domain->sublo, domain->subhi);
-  bb.extendByDelta(extend);
-  return bb;
 }
 
 /* ----------------------------------------------------------------------
@@ -434,16 +388,35 @@ void FixInsertPack::x_v_omega(int ninsert_this_local,int &ninserted_this_local, 
             pti = fix_distribution->pti_list[ninserted_this_local];
             double rbound = pti->r_bound_ins;
 
-            if(screen && print_stats_during_flag && (ninsert_this_local >= 10) && (0 == itotal % (ninsert_this_local/10)))
+            if(print_stats_during_flag && (ninsert_this_local >= 10) && (0 == itotal % (ninsert_this_local/10)))
                 fprintf(screen,"insertion: proc %d at %d %%\n",comm->me,10*itotal/(ninsert_this_local/10));
 
-            if(all_in_flag) ins_region->generate_random_shrinkby_cut(pos,rbound,true);
-            else ins_region->generate_random(pos,true);
+            do
+            {
+                
+                if(all_in_flag) ins_region->generate_random_shrinkby_cut(pos,rbound,true);
+                else ins_region->generate_random(pos,true);
+                ntry++;
+            }
+            while(ntry < maxtry && domain->dist_subbox_borders(pos) < rbound);
+
+            if(ntry == maxtry) break;
 
             // randomize vel, omega, quat here
             vectorCopy3D(v_insert,v_toInsert);
             // could ramdonize vel, omega, quat here
-            generate_random_velocity(v_toInsert);
+            if(v_randomSetting==1)
+            {
+                v_toInsert[0] = v_insert[0] + v_insertFluct[0] * 2.0 * (random->uniform()-0.50);
+                v_toInsert[1] = v_insert[1] + v_insertFluct[1] * 2.0 * (random->uniform()-0.50);
+                v_toInsert[2] = v_insert[2] + v_insertFluct[2] * 2.0 * (random->uniform()-0.50);
+            }
+            if(v_randomSetting==2)
+            {
+                v_toInsert[0] = v_insert[0] + v_insertFluct[0] * random->gaussian();
+                v_toInsert[1] = v_insert[1] + v_insertFluct[1] * random->gaussian();
+                v_toInsert[2] = v_insert[2] + v_insertFluct[2] * random->gaussian();
+            }
 
             if(quat_random_)
                 MathExtraLiggghts::random_unit_quat(random,quat_insert);
@@ -468,7 +441,7 @@ void FixInsertPack::x_v_omega(int ninsert_this_local,int &ninserted_this_local, 
             pti = fix_distribution->pti_list[ninserted_this_local];
             double rbound = pti->r_bound_ins;
 
-            if(screen && print_stats_during_flag && (ninsert_this_local >= 10) && (0 == ninserted_this_local % (ninsert_this_local/10)) )
+            if(print_stats_during_flag && (ninsert_this_local >= 10) && (0 == ninserted_this_local % (ninsert_this_local/10)) )
                 fprintf(screen,"insertion: proc %d at %d %%\n",comm->me,10*ninserted_this_local/(ninsert_this_local/10));
 
             int nins = 0;
@@ -480,23 +453,30 @@ void FixInsertPack::x_v_omega(int ninsert_this_local,int &ninserted_this_local, 
                     if(all_in_flag) ins_region->generate_random_shrinkby_cut(pos,rbound,true);
                     else ins_region->generate_random(pos,true);
                     ntry++;
-
                 }
-                
-                while((check_dist_from_subdomain_border_) && (ntry < maxtry && domain->dist_subbox_borders(pos) < rbound));
-
-                if(ntry == maxtry) break;
+                while(ntry < maxtry && domain->dist_subbox_borders(pos) < rbound);
 
                 // randomize vel, omega, quat here
                 vectorCopy3D(v_insert,v_toInsert);
 
                 // could ramdonize vel, omega, quat here
-                generate_random_velocity(v_toInsert);
+                if(v_randomSetting==1)
+                {
+                    v_toInsert[0] = v_insert[0] + v_insertFluct[0] * 2.0 * (random->uniform()-0.50);
+                    v_toInsert[1] = v_insert[1] + v_insertFluct[1] * 2.0 * (random->uniform()-0.50);
+                    v_toInsert[2] = v_insert[2] + v_insertFluct[2] * 2.0 * (random->uniform()-0.50);
+                }
+                else if(v_randomSetting==2)
+                {
+                    v_toInsert[0] = v_insert[0] + v_insertFluct[0] * random->gaussian();
+                    v_toInsert[1] = v_insert[1] + v_insertFluct[1] * random->gaussian();
+                    v_toInsert[2] = v_insert[2] + v_insertFluct[2] * random->gaussian();
+                }
 
                 if(quat_random_)
                     MathExtraLiggghts::random_unit_quat(random,quat_insert);
 
-                nins = pti->check_near_set_x_v_omega(pos,v_toInsert,omega_insert,quat_insert,neighList);
+                nins = pti->check_near_set_x_v_omega(pos,v_toInsert,omega_insert,quat_insert,xnear,nspheres_near);
 
             }
 

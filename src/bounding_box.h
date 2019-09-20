@@ -1,45 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2015 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_BOUNDING_BOX
@@ -100,9 +87,6 @@ class BoundingBox
       zLo = -limit[4];
       zHi =  limit[5];
     }
-
-    void extrude(double length, const double * vec);
-
     void getBoxBounds(double *lo,double *hi)
     {
         lo[0] = xLo;
@@ -112,17 +96,6 @@ class BoundingBox
         hi[1] = yHi;
         hi[2] = zHi;
     }
-
-    double getVolume()
-    { return (zHi-zLo)*(yHi-yLo)*(xHi-xLo); }
-
-    void getExtent(double extent[3]) const {
-      extent[0] = xHi - xLo;
-      extent[1] = yHi - yLo;
-      extent[2] = zHi - zLo;
-    }
-
-    void extendByDelta(double delta);
 
     void getBoxBoundsExtendedByDelta(double *lo,double *hi,double delta)
     {
@@ -159,17 +132,11 @@ class BoundingBox
     {
        // check bbox
        // test for >= and < as in Domain class
-       return (p[0] >= xLo && p[0] < xHi &&
+        if (p[0] >= xLo && p[0] < xHi &&
             p[1] >= yLo && p[1] < yHi &&
-           p[2] >= zLo && p[2] < zHi);
-    }
-
-    bool isDirty() const {
-        return dirty;
-    }
-
-    void setDirty(bool value) {
-        dirty = value;
+            p[2] >= zLo && p[2] < zHi)
+            return true;
+        return false;
     }
 
   private:
@@ -177,7 +144,6 @@ class BoundingBox
     double xLo, xHi, yLo, yHi, zLo, zHi;
 
     bool initGiven;
-    bool dirty;
 };
 
 } /* LAMMPS_NS */

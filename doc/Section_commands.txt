@@ -175,7 +175,6 @@ See the "dump"_dump.html command for one-line descriptions
 of each style or click on the style itself for a full description:
 
 
-"custom/vtk"_dump_custom_vtk.html,
 "image"_dump_image.html,
 "local/gran/vtk"_dump_local_gran_vtk.html,
 "movie"_dump_image.html :tb(c=4,ea=c)

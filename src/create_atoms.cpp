@@ -1,57 +1,29 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdlib.h"
+#include "string.h"
 #include "create_atoms.h"
 #include "atom.h"
 #include "atom_vec.h"
@@ -65,21 +37,16 @@
 #include "error.h"
 #include "force.h"
 
-// include last to ensure correct macros
-#include "domain_definitions.h"
-
 using namespace LAMMPS_NS;
 
+#define BIG      1.0e30
 #define EPSILON  1.0e-6
 
 enum{BOX,REGION,SINGLE,RANDOM};
 
 /* ---------------------------------------------------------------------- */
 
-CreateAtoms::CreateAtoms(LAMMPS *lmp) :
-    Pointers(lmp),
-    seed_char(NULL)
-{}
+CreateAtoms::CreateAtoms(LAMMPS *lmp) : Pointers(lmp) {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -90,9 +57,6 @@ void CreateAtoms::command(int narg, char **arg)
   if (modify->nfix_restart_peratom)
     error->all(FLERR,"Cannot create_atoms after "
                "reading restart file with per-atom info");
-
-  all_in = false; 
-  all_in_dist = 0.; 
 
   // parse arguments
 
@@ -124,10 +88,7 @@ void CreateAtoms::command(int narg, char **arg)
     style = RANDOM;
     if (narg < 5) error->all(FLERR,"Illegal create_atoms command");
     nrandom = force->inumeric(FLERR,arg[2]);
-    if (seed_char)
-        delete [] seed_char;
-    seed_char = new char [strlen(arg[2])+1];
-    strcpy(seed_char, arg[2]);
+    seed = force->inumeric(FLERR,arg[3]);
     if (strcmp(arg[4],"NULL") == 0) nregion = -1;
     else {
       nregion = domain->find_region(arg[4]);
@@ -140,7 +101,7 @@ void CreateAtoms::command(int narg, char **arg)
 
   // process optional keywords
 
-  int scaleflag = 0; 
+  int scaleflag = 1;
   remapflag = 0;
 
   nbasis = domain->lattice->nbasis;
@@ -163,13 +124,6 @@ void CreateAtoms::command(int narg, char **arg)
       else if (strcmp(arg[iarg+1],"no") == 0) remapflag = 0;
       else error->all(FLERR,"Illegal create_atoms command");
       iarg += 2;
-    } else if (strcmp(arg[iarg],"all_in") == 0) { 
-      if (iarg+2 > narg) error->all(FLERR,"Illegal create_atoms command");
-      all_in_dist = force->numeric(FLERR,arg[iarg+1]);
-      if(all_in_dist <= 0.)
-            error->all(FLERR,"Illegal create_atoms command, 'all_in' > 0 required");
-      all_in = true;
-      iarg += 2;
     } else if (strcmp(arg[iarg],"units") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal create_atoms command");
       if (strcmp(arg[iarg+1],"box") == 0) scaleflag = 0;
@@ -183,10 +137,8 @@ void CreateAtoms::command(int narg, char **arg)
 
   if (style == RANDOM) {
     if (nrandom < 0) error->all(FLERR,"Illegal create_atoms command");
+    if (seed <= 0) error->all(FLERR,"Illegal create_atoms command");
   }
-
-  if(all_in && ! (REGION==style))
-    error->all(FLERR,"Illegal create_atoms command, 'all_in' can only be used together with region");
 
   // demand non-none lattice be defined for BOX and REGION
   // else setup scaling for SINGLE and RANDOM
@@ -383,7 +335,7 @@ void CreateAtoms::add_random()
 
   // random number generator, same for all procs
 
-  RanPark *random = new RanPark(lmp,seed_char);
+  RanPark *random = new RanPark(lmp,seed);
 
   // bounding box for atom creation
   // in real units, even if triclinic
@@ -428,15 +380,9 @@ void CreateAtoms::add_random()
       if (domain->dimension == 2) xone[2] = zmid;
 
       valid = 1;
-      if (nregion >= 0) 
-      {
-        if(!all_in && domain->regions[nregion]->match(xone[0],xone[1],xone[2]) == 0)
-            valid = 0;
-
-        else if(all_in && domain->regions[nregion]->match_shrinkby_cut(xone,all_in_dist) == 0)
-            valid = 0;
-      }
-
+      if (nregion >= 0 &&
+          domain->regions[nregion]->match(xone[0],xone[1],xone[2]) == 0)
+        valid = 0;
       if (triclinic) {
         domain->x2lamda(xone,lamda);
         coord = lamda;
@@ -556,11 +502,8 @@ void CreateAtoms::add_lattice()
 
           // if a region was specified, test if atom is in it
 
-          if (style == REGION) 
-          {
-            if (!all_in && !domain->regions[nregion]->match(x[0],x[1],x[2])) continue;
-            if (all_in && !domain->regions[nregion]->match_shrinkby_cut(x,all_in_dist)) continue;
-          }
+          if (style == REGION)
+            if (!domain->regions[nregion]->match(x[0],x[1],x[2])) continue;
 
           // test if atom is in my subbox
 

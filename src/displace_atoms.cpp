@@ -1,52 +1,20 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #include "lmptype.h"
-#include <mpi.h>
-#include <stdlib.h>
-#include <string.h>
+#include "mpi.h"
+#include "stdlib.h"
+#include "string.h"
 #include "displace_atoms.h"
 #include "atom.h"
 #include "modify.h"
@@ -99,7 +67,7 @@ void DisplaceAtoms::command(int narg, char **arg)
 
   // set option defaults
 
-  scaleflag = 0; 
+  scaleflag = 1;
 
   // read options from end of input line
 
@@ -149,7 +117,7 @@ void DisplaceAtoms::command(int narg, char **arg)
     else if (strcmp(arg[2],"z") == 0) d_dim = 2;
     else error->all(FLERR,"Illegal displace_atoms ramp command");
 
-    double d_lo=0.0,d_hi=0.0;
+    double d_lo,d_hi;
     if (d_dim == 0) {
       d_lo = xscale*force->numeric(FLERR,arg[3]);
       d_hi = xscale*force->numeric(FLERR,arg[4]);
@@ -167,7 +135,7 @@ void DisplaceAtoms::command(int narg, char **arg)
     else if (strcmp(arg[5],"z") == 0) coord_dim = 2;
     else error->all(FLERR,"Illegal displace_atoms ramp command");
 
-    double coord_lo=0.0,coord_hi=0.0;
+    double coord_lo,coord_hi;
     if (coord_dim == 0) {
       coord_lo = xscale*force->numeric(FLERR,arg[6]);
       coord_hi = xscale*force->numeric(FLERR,arg[7]);
@@ -183,12 +151,14 @@ void DisplaceAtoms::command(int narg, char **arg)
     int *mask = atom->mask;
     int nlocal = atom->nlocal;
 
+    double fraction,dramp;
+
     for (i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
-        double fraction = (x[i][coord_dim] - coord_lo) / (coord_hi - coord_lo);
+        fraction = (x[i][coord_dim] - coord_lo) / (coord_hi - coord_lo);
         fraction = MAX(fraction,0.0);
         fraction = MIN(fraction,1.0);
-        const double dramp = d_lo + fraction*(d_hi - d_lo);
+        dramp = d_lo + fraction*(d_hi - d_lo);
         x[i][d_dim] += dramp;
       }
     }
@@ -198,11 +168,12 @@ void DisplaceAtoms::command(int narg, char **arg)
   // makes atom result independent of what proc owns it via random->reset()
 
   if (style == RANDOM) {
+    RanPark *random = new RanPark(lmp,1);
+
     double dx = xscale*force->numeric(FLERR,arg[2]);
     double dy = yscale*force->numeric(FLERR,arg[3]);
     double dz = zscale*force->numeric(FLERR,arg[4]);
-    RanPark *random = new RanPark(lmp, arg[5]);
-    int seed = random->getSeed();
+    int seed = force->inumeric(FLERR,arg[5]);
     if (seed <= 0) error->all(FLERR,"Illegal displace_atoms random command");
 
     double **x = atom->x;
@@ -220,7 +191,7 @@ void DisplaceAtoms::command(int narg, char **arg)
 
     delete random;
   }
-
+ 
   // rotate atoms by right-hand rule by theta around R
   // P = point = vector = point of rotation
   // R = vector = axis of rotation
@@ -235,7 +206,7 @@ void DisplaceAtoms::command(int narg, char **arg)
   if (style == ROTATE) {
     double axis[3],point[3];
     double a[3],b[3],c[3],d[3],disp[3],runit[3];
-
+    
     int dim = domain->dimension;
     point[0] = xscale*force->numeric(FLERR,arg[2]);
     point[1] = yscale*force->numeric(FLERR,arg[3]);
@@ -309,7 +280,7 @@ void DisplaceAtoms::command(int narg, char **arg)
   bigint nblocal = atom->nlocal;
   MPI_Allreduce(&nblocal,&natoms,1,MPI_LMP_BIGINT,MPI_SUM,world);
   if (natoms != atom->natoms && comm->me == 0) {
-    char str[512];
+    char str[128];
     sprintf(str,"Lost atoms via displace_atoms: original " BIGINT_FORMAT
             " current " BIGINT_FORMAT,atom->natoms,natoms);
     error->warning(FLERR,str);

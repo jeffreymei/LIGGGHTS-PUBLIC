@@ -1,52 +1,28 @@
-/* ----------------------------------------------------------------------
-    This is the
+/* -*- c++ -*- ----------------------------------------------------------
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_FIX_H
@@ -83,7 +59,6 @@ class Fix : protected Pointers {
                                  //      so write_restart must remap to PBC
   int wd_header;                 // # of header values fix writes to data file
   int wd_section;                // # of sections fix writes to data file
-  int dynamic_group_allow;       // 1 if can be used with dynamic group, else 0
   int cudable_comm;              // 1 if fix has CUDA-enabled communication
 
   int rad_mass_vary_flag;        // 1 if particle radius or mass varied by fix 
@@ -127,9 +102,6 @@ class Fix : protected Pointers {
   int recent_restart;            
 
   int restart_reset;             // 1 if restart just re-initialized fix
-
-  char *accepts_restart_data_from_style; 
-
   unsigned int datamask;
   unsigned int datamask_ext;
 
@@ -144,7 +116,7 @@ class Fix : protected Pointers {
   virtual void pre_delete(bool) {} 
   virtual void box_extent(double &xlo,double &xhi,double &ylo,double &yhi,double &zlo,double &zhi) {
     UNUSED(xlo); UNUSED(xhi); UNUSED(ylo); UNUSED(yhi); UNUSED(zlo); UNUSED(zhi); 
-  }
+  } 
   virtual void init() {}
   virtual void init_list(int, class NeighList *) {}
   virtual void setup(int) {}
@@ -152,19 +124,17 @@ class Fix : protected Pointers {
   virtual void setup_pre_neighbor() {}
   virtual void setup_pre_force(int) {}
   virtual void min_setup(int) {}
-  virtual void pre_initial_integrate() {}
   virtual void initial_integrate(int) {}
   virtual void post_integrate() {}
   virtual void pre_exchange() {}
   virtual void pre_neighbor() {}
   virtual void pre_force(int) {}
   virtual void post_force(int) {}
-  virtual void pre_final_integrate() {}
   virtual void final_integrate() {}
   virtual bool iterate_implicitly() {return false;} 
   virtual void end_of_step() {}
   virtual void post_run() {}
-  virtual void write_restart(FILE *);
+  virtual void write_restart(FILE *) {}
   virtual void write_restart_file(char *) {}
   virtual void restart(char *) {}
 
@@ -245,7 +215,6 @@ class Fix : protected Pointers {
   virtual unsigned int data_mask() {return datamask;}
   virtual unsigned int data_mask_ext() {return datamask_ext;}
 
-  virtual bool use_rad_for_cut_neigh_and_ghost() {return true;} 
   virtual double min_rad(int) {return 0.0;} 
   virtual double max_rad(int) {return 0.0;} 
   virtual int min_type() {return 0;} 
@@ -254,24 +223,10 @@ class Fix : protected Pointers {
   virtual int n_history_extra() {return 0;} 
   virtual bool history_args(char** args) { UNUSED(args); return false; } 
 
-  // Mesh creation routines
-  virtual int getCreateMeshTriCount()
-  { return 0; }
-
-  virtual double * getCreateMeshTriNode(const int i)
-  { return NULL; }
-
-  bool can_create_mesh()
-  { return can_create_mesh_; }
-
-  virtual class IRegionNeighborFieldList* getFieldList() const
-  { return NULL; }
-
  protected:
   int evflag;
   int vflag_global,vflag_atom;
   int maxvatom;
-  bool can_create_mesh_;
 
   void v_setup(int);
   void v_tally(int, int *, double, double *);
@@ -322,31 +277,28 @@ typedef void (Fix::*FixMethodRESPA2)(int,int);
 typedef void (Fix::*FixMethodRESPA3)(int,int,int);
 
 namespace FixConst {
-  // PRE_INITIAL_INTEGRATE added at end of list
   static const int INITIAL_INTEGRATE =       1<<0;
   static const int POST_INTEGRATE =          1<<1;
   static const int PRE_EXCHANGE =            1<<2;
   static const int PRE_NEIGHBOR =            1<<3;
   static const int PRE_FORCE =               1<<4;
   static const int POST_FORCE =              1<<5;
-  static const int PRE_FINAL_INTEGRATE =     1<<6;
-  static const int FINAL_INTEGRATE =         1<<7;
-  static const int END_OF_STEP =             1<<8;
-  static const int THERMO_ENERGY =           1<<9;
-  static const int INITIAL_INTEGRATE_RESPA = 1<<10;
-  static const int POST_INTEGRATE_RESPA =    1<<11;
-  static const int PRE_FORCE_RESPA =         1<<12;
-  static const int POST_FORCE_RESPA =        1<<13;
-  static const int FINAL_INTEGRATE_RESPA =   1<<14;
-  static const int MIN_PRE_EXCHANGE =        1<<15;
-  static const int MIN_PRE_NEIGHBOR =        1<<16;
-  static const int MIN_PRE_FORCE =           1<<17;
-  static const int MIN_POST_FORCE =          1<<18;
-  static const int MIN_ENERGY =              1<<19;
-  static const int POST_RUN =                1<<20;
-  static const int ITERATE_IMPLICITLY =      1<<21; 
-  static const int FIX_CONST_LAST =          1<<22; 
-  static const int PRE_INITIAL_INTEGRATE =   1<<23;
+  static const int FINAL_INTEGRATE =         1<<6;
+  static const int END_OF_STEP =             1<<7;
+  static const int THERMO_ENERGY =           1<<8;
+  static const int INITIAL_INTEGRATE_RESPA = 1<<9;
+  static const int POST_INTEGRATE_RESPA =    1<<10;
+  static const int PRE_FORCE_RESPA =         1<<11;
+  static const int POST_FORCE_RESPA =        1<<12;
+  static const int FINAL_INTEGRATE_RESPA =   1<<13;
+  static const int MIN_PRE_EXCHANGE =        1<<14;
+  static const int MIN_PRE_NEIGHBOR =        1<<15;
+  static const int MIN_PRE_FORCE =           1<<16;
+  static const int MIN_POST_FORCE =          1<<17;
+  static const int MIN_ENERGY =              1<<18;
+  static const int POST_RUN =                1<<19;
+  static const int ITERATE_IMPLICITLY =      1<<20; 
+  static const int FIX_CONST_LAST =          1<<21; 
 }
 
 }

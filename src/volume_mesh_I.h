@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_VOLUME_MESH_I_H
@@ -405,13 +389,13 @@ bool VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::isInside(double *p)
 ------------------------------------------------------------------------- */
 
 template<int NUM_NODES,int NUM_FACES,int NUM_NODES_PER_FACE>
-void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::move(const double * const vecTotal, const double * const vecIncremental)
+void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::move(double *vecTotal, double *vecIncremental)
 {
     TrackingMesh<NUM_NODES>::move(vecTotal,vecIncremental);
 }
 
 template<int NUM_NODES,int NUM_FACES,int NUM_NODES_PER_FACE>
-void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::move(const double * const vecIncremental)
+void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::move(double *vecIncremental)
 {
     TrackingMesh<NUM_NODES>::move(vecIncremental);
 }
@@ -423,14 +407,14 @@ void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::scale(double factor)
 }
 
 template<int NUM_NODES,int NUM_FACES,int NUM_NODES_PER_FACE>
-void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::rotate(const double * const totalQ, const double * const dQ, const double * const totalDispl, const double * const dDisp)
+void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::rotate(double *totalQ, double *dQ,double *totalDispl, double *dDisp)
 {
     TrackingMesh<NUM_NODES>::rotate(totalQ,dQ,totalDispl,dDisp);
 
 }
 
 template<int NUM_NODES,int NUM_FACES,int NUM_NODES_PER_FACE>
-void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::rotate(const double * const dQ, const double * const dDispl)
+void VolumeMesh<NUM_NODES,NUM_FACES,NUM_NODES_PER_FACE>::rotate(double *dQ,double *dDispl)
 {
     TrackingMesh<NUM_NODES>::rotate(dQ,dDispl);
 }

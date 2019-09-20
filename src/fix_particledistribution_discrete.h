@@ -1,50 +1,32 @@
 
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
 
 FixStyle(particledistribution/discrete,FixParticledistributionDiscrete)
-FixStyle(particledistribution/discrete/numberbased,FixParticledistributionDiscrete)
-FixStyle(particledistribution/discrete/massbased,FixParticledistributionDiscrete)
 
 #else
 
@@ -52,8 +34,6 @@ FixStyle(particledistribution/discrete/massbased,FixParticledistributionDiscrete
 #define LMP_FIX_PARTICLEDISTRIBUTION_DISCRETE_H
 
 #include "fix.h"
-#include "fix_property_atom.h"
-#include "random_park.h"
 
 enum{RAN_STYLE_CONSTANT_FPD,RAN_STYLE_UNIFORM_FPD,RAN_STYLE_GAUSSIAN_FPD};
 
@@ -91,38 +71,21 @@ class FixParticledistributionDiscrete : public Fix {
   class Region* randomize_single();    
 
   void random_init_list(int);
-  void direct_init_list(const int * const parttogen, FixPropertyAtom * const fix_release);
   int randomize_list(int,int,int);     
-  void direct_set_ptlist(const int itemplate, const int i, const void * const data, const int distribution_groupbit);
-  int update_ptlist_pointer(const int * ext_parttogen);
 
-  class ParticleToInsert *pti;
-  class ParticleToInsert **pti_list;
-  int n_pti, n_pti_max;
-
-  void pre_insert(int n,class FixPropertyAtom *fp = 0,double val = 0.);
-  int insert(int n);
   void finalize_insertion();
 
-  unsigned int generate_hash();
+  class ParticleToInsert *pti;
+
+  class ParticleToInsert **pti_list;
+  int n_pti, n_pti_max;
+  void pre_insert();
+  int insert(int n);
 
   inline int n_particletemplates()
   { return ntemplates; }
-
   inline class FixTemplateSphere** particletemplates()
   { return templates; }
-
-  inline int dist_order(int i)
-  { return (i >= ntemplates) ? (-1) : (distorder[i]); }
-
-  inline int random_state()
-  { return random->state(); }
-
-  void save_templates(FixPropertyAtom *fix_template)
-  { fix_template_ = fix_template; }
-
-  FixTemplateSphere * get_template(const int i)
-  { return i < ntemplates ? templates[i] : NULL; }
 
  protected:
 
@@ -134,15 +97,13 @@ class FixParticledistributionDiscrete : public Fix {
 
   int iarg;
 
-  bool mass_based;
-
   // particle templates
-  int ntemplates;       
-  double *distweight;   
-  double *cumweight;    
-  int *parttogen;       
-  int *distorder;       
-  class FixTemplateSphere **templates; 
+  int ntemplates;
+  double *distweight;
+  double *cumweight;
+  int *parttogen;
+  int *distorder;
+  class FixTemplateSphere **templates;
 
   // mass and volume expectancy of this discrete distribution
   double volexpect;
@@ -152,17 +113,11 @@ class FixParticledistributionDiscrete : public Fix {
   int maxtype;
   int mintype;
 
-  // maximum number of spheres of all templates
+  // maximum number of spheres a template has
   int maxnspheres;
 
-  // maximum radius and bounding sphere radius of all templates
+  // maximum radius and bounding sphere radius
   double minrad,maxrad,maxrbound;
-
-  // save templates
-  FixPropertyAtom *fix_template_;
-
-  void add_hash_value(const int value, unsigned int &start, unsigned int &hash);
-  void add_hash_value(double value, unsigned int &start, unsigned int &hash);
 };
 
 }

@@ -1,57 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <string.h>
-#include <stdlib.h>
+#include "math.h"
+#include "string.h"
+#include "stdlib.h"
 #include "compute_contact_atom.h"
 #include "atom.h"
 #include "update.h"
@@ -69,21 +45,19 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-ComputeContactAtom::ComputeContactAtom(LAMMPS *lmp, int &iarg, int narg, char **arg) :
-  Compute(lmp, iarg, narg, arg)
+ComputeContactAtom::ComputeContactAtom(LAMMPS *lmp, int narg, char **arg) :
+  Compute(lmp, narg, arg)
 {
   
-  if (narg < iarg) error->all(FLERR,"Illegal compute contact/atom command");
+  if (narg < 3) error->all(FLERR,"Illegal compute contact/atom command");
 
   skin = 0.;
 
-  if(narg > iarg)
+  if(narg > 3)
   {
-      if (narg < iarg+2)
-          error->all(FLERR,"Illegal compute contact/atom command");
-      if(strcmp("skin",arg[iarg++]))
-          error->all(FLERR,"Illegal compute contact/atom command, expecting keyword 'skin'");
-      skin = atof(arg[iarg++]);
+      if (narg < 5) error->all(FLERR,"Illegal compute contact/atom command");
+      if(strcmp("skin",arg[3])) error->all(FLERR,"Illegal compute contact/atom command, expecting keyword 'skin'");
+      skin = atof(arg[4]);
   }
   
   peratom_flag = 1;
@@ -95,8 +69,8 @@ ComputeContactAtom::ComputeContactAtom(LAMMPS *lmp, int &iarg, int narg, char **
 
   // error checks
 
-  if (!atom->sphere_flag && !atom->superquadric_flag)
-    error->all(FLERR,"Compute contact/atom requires atom style sphere or atom style superquadric!");
+  if (!atom->sphere_flag)
+    error->all(FLERR,"Compute contact/atom requires atom style sphere");
 }
 
 /* ---------------------------------------------------------------------- */

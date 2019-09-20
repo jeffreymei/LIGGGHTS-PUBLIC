@@ -3,55 +3,26 @@
 SHELL = /bin/bash
 #.IGNORE:
 
-# Subtargets for makefile auto
-SUBTARGET_PRE_DEBUG = $(@)
-OPTIONSPOSTFIX_PRE_DEBUG =
-ifneq ($(origin postfix), undefined)
-    ifneq (${postfix}, )
-        ifneq (,$(filter $(MAKECMDGOALS), auto clean-auto))
-            ifeq (${postfix}, default)
-                $(error A postfix value of "default" is not allowed)
-            endif
-            SUBTARGET_PRE_DEBUG = $@_${postfix}
-            OPTIONSPOSTFIX_PRE_DEBUG = _${postfix}
-        endif
-    endif
-endif
-SUBTARGET = $(SUBTARGET_PRE_DEBUG)
-OPTIONSPOSTFIX = $(OPTIONSPOSTFIX_PRE_DEBUG)
-ifneq ($(origin debug), undefined)
-    ifneq (${debug}, )
-        ifneq (,$(filter $(MAKECMDGOALS), auto clean-auto))
-            ifeq (,$(filter $(debug), ON FULL))
-                $(error Only values for debug are "ON" and "FULL")
-            endif
-            ifeq (${debug},ON)
-                SUBTARGET = $(SUBTARGET_PRE_DEBUG)-debug
-                OPTIONSPOSTFIX = $(OPTIONSPOSTFIX_PRE_DEBUG)-debug
-            endif
-            ifeq (${debug},FULL)
-                SUBTARGET = $(SUBTARGET_PRE_DEBUG)-fulldebug
-                OPTIONSPOSTFIX = $(OPTIONSPOSTFIX_PRE_DEBUG)-fulldebug
-            endif
-        endif
-    endif
-endif
-
 # Definitions
 
 ROOT =	lmp
-EXE =	$(ROOT)_${SUBTARGET}
+EXE =	$(ROOT)_$@
 SRC =	$(wildcard *.cpp)
 INC =	$(wildcard *.h)
 OBJ = 	$(SRC:.cpp=.o)
 
 # Package variables
 
-PACKAGE = asphere cohesionmodels molecule pascal poems rigid surfacemodels voronoi
+PACKAGE = asphere body class2 colloid dipole fld gpu granular kim \
+	  kspace manybody mc meam misc molecule opt peri poems reax replica \
+	  rigid shock srd voronoi xtc
 
-PACKUSER = 
+PACKUSER = user-atc user-awpmd user-cg-cmm user-colvars \
+	   user-cuda user-eff user-lb user-misc user-omp user-molfile \
+	   user-phonon user-reaxc user-sph
 
-PACKLIB = poems voronoi 
+PACKLIB = gpu kim meam poems reax voronoi \
+	  user-atc user-awpmd user-colvars user-cuda user-molfile
 
 PACKALL = $(PACKAGE) $(PACKUSER)
 
@@ -96,24 +67,24 @@ help:
 	@echo ''
 	@echo 'make machine             build LAMMPS where machine is one of:'
 	@echo ''
-	@files="`ls MAKE/ -I Makefile.user* -I Makefile.user_default -I CMakeLists_Catalyst.txt -I Makefile.auto.options* -I deprecated`"; \
-	  for file in $$files; do head -1 MAKE/$$file; done
+	@files="`ls MAKE/Makefile.*`"; \
+	  for file in $$files; do head -1 $$file; done
 	@echo ''
 
 # Build the code
 
 .DEFAULT:
 	@test -f MAKE/Makefile.$@
-	@if [ ! -d Obj_${SUBTARGET} ]; then mkdir Obj_${SUBTARGET}; fi
+	@if [ ! -d Obj_$@ ]; then mkdir Obj_$@; fi
 	@$(SHELL) Make.sh style
 	@$(SHELL) Make.sh models
-	@cp MAKE/Makefile.$@ Obj_${SUBTARGET}/Makefile
+	@cp MAKE/Makefile.$@ Obj_$@/Makefile
 	@if [ ! -e Makefile.package ]; \
 	  then cp Makefile.package.empty Makefile.package; fi
 	@if [ ! -e Makefile.package.settings ]; \
 	  then cp Makefile.package.settings.empty Makefile.package.settings; fi
-	@cp Makefile.package Makefile.package.settings Obj_${SUBTARGET}
-	@cd Obj_${SUBTARGET}; \
+	@cp Makefile.package Makefile.package.settings Obj_$@
+	@cd Obj_$@; \
 	$(MAKE) $(MFLAGS) "OBJ = $(OBJ)" "INC = $(INC)" "SHFLAGS =" \
 	  "EXE = ../$(EXE)" ../$(EXE)
 
@@ -124,10 +95,10 @@ clean:
 	@echo 'make clean-machine       delete object files for one machine'
 
 clean-all:
-	rm -rf Obj_* *.a *.so MAKE/Makefile.auto.options* $(ROOT)_*
+	rm -rf Obj_* *.a
 
 clean-%:
-	rm -rf Obj_$(@:clean-%=%)$(OPTIONSPOSTFIX) MAKE/Makefile.$(@:clean-%=%).options$(OPTIONSPOSTFIX) $(ROOT)_$(@:clean-%=%)$(OPTIONSPOSTFIX) lib$(ROOT)_$(@:clean-%=%)$(OPTIONSPOSTFIX).a lib$(ROOT)_$(@:clean-%=%)$(OPTIONSPOSTFIX).so
+	rm -rf Obj_$(@:clean-%=%)
 
 purge: Purge.list
 	@echo 'Purging obsolete and auto-generated source files'
@@ -155,12 +126,15 @@ stubs:
 
 makelib:
 	@$(SHELL) Make.sh style
+	@$(SHELL) Make.sh Makefile.lib
 
 makeshlib:
 	@$(SHELL) Make.sh style
+	@$(SHELL) Make.sh Makefile.shlib
 
 makelist:
 	@$(SHELL) Make.sh style
+	@$(SHELL) Make.sh Makefile.list
 
 # install LAMMPS shared lib and Python wrapper for Python usage
 

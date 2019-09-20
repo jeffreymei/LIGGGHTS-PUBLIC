@@ -1,46 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_CUSTOM_VALUE_TRACKER_H
@@ -49,146 +35,108 @@
 #include "associative_pointer_array.h"
 #include "container.h"
 #include "abstract_mesh.h"
-#include <string>
-#include <list>
-#include <vector>
 
 namespace LAMMPS_NS
 {
+  class CustomValueTracker : protected Pointers
+  {
+      public:
+        CustomValueTracker(LAMMPS *lmp);
+        CustomValueTracker(LAMMPS *lmp,AbstractMesh *_owner);
+        ~CustomValueTracker();
 
-/* ---------------------------------------------------------------------- */
+        // per-element properties
 
-class CustomValueTracker : protected Pointers
-{
-public:
-    CustomValueTracker(LAMMPS *lmp);
-    CustomValueTracker(LAMMPS *lmp,AbstractMesh *_owner);
-    ~CustomValueTracker();
+        template<typename T>
+        T* addElementProperty(const char *_id, const char* _comm, const char* _ref, const char *_restart, int _scalePower = 1, int _init_len = 0);
 
-    // per-element properties
+        template<typename T>
+        T* getElementProperty(const char *_id);
 
-    template<typename T>
-    T* addElementProperty(const char *_id,
-                          const char* _comm,
-                          const char* _ref,
-                          const char *_restart,
-                          int _scalePower = 1,
-                          int _init_len = 0,
-                          const char *_statistics = 0,
-                          const double _weighting_factor = 1,
-                          ScalarContainer<double> * const scale = NULL,
-                          ScalarContainer<double> * const scaleAvg = NULL,
-                          const bool _enable_favre = false);
+        inline ContainerBase* getElementPropertyBase(const char *_id);
+        inline ContainerBase* getElementPropertyBase(int i);
 
-    template<typename T>
-    T* getElementProperty(const char *_id);
+        inline int getElementPropertyIndex(const char *_id);
 
-    template<typename T>
-    T* getElementProperty(int _i);
+        template<typename T, typename U>
+        void setElementProperty(const char *_id, U def);
 
-    inline ContainerBase* getElementPropertyBase(const char *_id);
-    inline ContainerBase* getElementPropertyBase(int i);
+        void removeElementProperty(const char *_id);
 
-    inline int getElementPropertyIndex(const char *_id);
+        void check_element_property_consistency(int _len);
 
-    template<typename T, typename U>
-    void setElementProperty(const char *_id, U def);
+        // global (e.g. mesh) properties
 
-    void removeElementProperty(const char *_id);
+        template<typename T>
+        T* addGlobalProperty(const char *_id, const char* _comm, const char* _ref, const char *_restart, int _scalePower = 1);
 
-    inline int nElementProperties()
-    { return elementProperties_.size(); }
-    void check_element_property_consistency(int _len);
+        template<typename T>
+        T* getGlobalProperty(const char *_id);
 
-    // global (e.g. mesh) properties
+        template<typename T, typename U>
+        void setGlobalProperty(const char *_id, U def);
 
-    template<typename T>
-    T* addGlobalProperty(const char *_id, const char* _comm, const char* _ref, const char *_restart, int _scalePower = 1);
+        void removeGlobalProperty(const char *_id);
 
-    template<typename T>
-    T* getGlobalProperty(const char *_id);
+        // operation with
+        // per-element properties
 
-    template<typename T, typename U>
-    void setGlobalProperty(const char *_id, U def);
+        inline void copyElement(int from, int to);
+        inline void addUninitializedElement();
+        inline void addZeroElement();
+        inline void deleteElement(int i);
+        inline void deleteForwardElement(int i,bool scale,bool translate,bool rotate);
+        inline void deleteRestartElement(int i,bool scale,bool translate,bool rotate);
+        inline void deleteRestartGlobal(bool scale,bool translate,bool rotate);
+        void clearReverse(bool scale,bool translate,bool rotate);
 
-    void removeGlobalProperty(const char *_id);
+        void storeOrig();
+        void resetToOrig();
 
-    // operation with
-    // per-element properties
+        inline void storeGlobalPropOrig(const char *_id);
+        inline void resetGlobalPropToOrig(const char *_id);
 
-    inline void copyElement(int from, int to);
-    inline void addUninitializedElement();
-    inline void addZeroElement();
-    inline void deleteAllElements();
-    inline void deleteRestart(bool scale,bool translate,bool rotate);
-    inline void deleteElement(int i);
-    inline void deleteForwardElement(int i,bool scale,bool translate,bool rotate);
-    inline void deleteRestartElement(int i,bool scale,bool translate,bool rotate);
-    inline void deleteRestartGlobal(bool scale,bool translate,bool rotate);
-    void clearReverse(bool scale,bool translate,bool rotate);
+        inline void moveElement(int i, double *delta);
+        void move(double *vecTotal, double *vecIncremental);
+        void move(double *vecIncremental);
+        void rotate(double *totalQ, double *dQ);
+        void rotate(double *dQ);
+        void scale(double factor);
 
-    void storeOrig();
-    void resetToOrig();
+        // buffer operations
 
-    bool calcStatistics();
+        inline int elemListBufSize(int n,int operation,bool scale,bool translate,bool rotate);
+        inline int pushElemListToBuffer(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate);
+        inline int popElemListFromBuffer(int first, int n, double *buf, int operation,bool scale,bool translate, bool rotate);
+        inline int pushElemListToBufferReverse(int first, int n, double *buf, int operation,bool scale,bool translate, bool rotate);
+        inline int popElemListFromBufferReverse(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate);
 
-    template<typename T>
-    T* getAvgElementProperty(const char *_id);
+        inline int elemBufSize(int operation,bool scale,bool translate,bool rotate);
+        inline int pushElemToBuffer(int n, double *buf, int operation,bool scale,bool translate, bool rotate);
+        inline int popElemFromBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
 
-    template<typename T>
-    T* getMeanSquareElementProperty(const char *_id);
+        inline int globalPropsBufSize(int operation,bool scale,bool translate,bool rotate);
+        inline int pushGlobalPropsToBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
+        inline int popGlobalPropsFromBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
 
-    template<typename T>
-    T* getAvgAvgElementProperty(const char *_id);
+        // mem managenement
 
-    template<typename T>
-    T* getAvgMeanSquareElementProperty(const char *_id);
+        int getCapacity();
+        inline void grow(int to);
 
-    void setWeightingFactor(double _weighting_factor);
+      private:
 
-    inline void storeGlobalPropOrig(const char *_id);
-    inline void resetGlobalPropToOrig(const char *_id);
+        class AbstractMesh *ownerMesh_;
 
-    inline void moveElement(const int i, const double * const delta);
-    void move(const double * const vecTotal, const double * const vecIncremental);
-    void move(const double * const vecIncremental);
-    void rotate(const double * const totalQ, const double * const dQ);
-    void rotate(const double * const dQ);
-    void scale(double factor);
+        int capacityElement_; 
+        class AssociativePointerArray<ContainerBase> elementProperties_;
+        class AssociativePointerArray<ContainerBase> globalProperties_;
+        class AssociativePointerArray<ContainerBase> globalProperties_orig_;
+  };
 
-    // buffer operations
-
-    inline int allElemBufSize(int operation,bool scale,bool translate,bool rotate) const;
-    inline int pushAllElemToBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
-    inline int popAllElemFromBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
-
-    inline int elemListBufSize(int n,int operation,bool scale,bool translate,bool rotate);
-    inline int pushElemListToBuffer(int n, int *list, int *wraplist, double *buf, int operation, std::list<std::string> * properties, double *dlo, double *dhi,bool scale,bool translate, bool rotate);
-    inline int popElemListFromBuffer(int first, int n, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate);
-    inline int pushElemListToBufferReverse(int first, int n, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate);
-    inline int popElemListFromBufferReverse(int n, int *list, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate);
-
-    inline int elemBufSize(int operation, std::list<std::string> * properties, bool scale,bool translate,bool rotate);
-    inline int pushElemToBuffer(int i, double *buf, int operation,bool scale,bool translate, bool rotate);
-    inline int popElemFromBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
-
-    inline int globalPropsBufSize(int operation,bool scale,bool translate,bool rotate);
-    inline int pushGlobalPropsToBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
-    inline int popGlobalPropsFromBuffer(double *buf, int operation,bool scale,bool translate, bool rotate);
-
-private:
-
-    class AbstractMesh *ownerMesh_;
-
-    int capacityElement_; 
-    class AssociativePointerArray<ContainerBase> elementProperties_;
-    class AssociativePointerArray<ContainerBase> globalProperties_;
-    class AssociativePointerArray<ContainerBase> globalProperties_orig_;
-};
-
-// *************************************
-#include "custom_value_tracker_I.h"
-// *************************************
+  // *************************************
+  #include "custom_value_tracker_I.h"
+  // *************************************
 
 } /* LAMMPS_NS */
 #endif

@@ -1,53 +1,37 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <string.h>
-#include <stdlib.h>
+#include "string.h"
+#include "stdlib.h"
 #include "atom.h"
 #include "update.h"
 #include "respa.h"
 #include "error.h"
 #include "memory.h"
 #include "modify.h"
-#include <cmath>
+#include "math.h"
 #include "comm.h"
 #include "vector_liggghts.h"
 #include "fix_cfd_coupling.h"
@@ -76,27 +60,19 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
   // end_of_step is executed each ts
   nevery = 1;
 
-  ts_create_ = update->ntimestep;
-
-  couple_this_ = 0;
-  couple_nevery_ = 0;
-
   // parse args
 
-  if (narg < 4)
+  if (narg < 5)
     error->fix_error(FLERR,this,"");
 
-  if(0 == strcmp(arg[iarg_],"every") || 0 == strcmp(arg[iarg_],"couple_every"))
-  {
-    iarg_++;
+  if(strcmp(arg[iarg_],"every") && strcmp(arg[iarg_],"couple_every"))
+    error->fix_error(FLERR,this,"expecting keyword 'every'");
+  iarg_++;
 
-    if (narg < 6)
-        error->fix_error(FLERR,this,"not enough arguments");
+  couple_nevery_ = atoi(arg[iarg_++]);
+  if(couple_nevery_ < 0)
+    error->fix_error(FLERR,this,"'every' value must be >=0");
 
-    couple_nevery_ = atoi(arg[iarg_++]);
-    if(couple_nevery_ < 0)
-        error->fix_error(FLERR,this,"'every' value must be >=0");
-  }
   // construct data coupling submodel and parse its args
 
   if (0) return;
@@ -106,13 +82,6 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
   #include "style_cfd_datacoupling.h"
   #undef CFD_DATACOUPLING_CLASS
   else error->fix_error(FLERR,this,"Unknown data coupling style - expecting 'file' or 'MPI'");
-
-  if(!dynamic_cast<CfdDatacouplingMPI*>(dc_) && 0 == couple_nevery_)
-    error->fix_error(FLERR,this,"expecting keyword 'couple_every' ");
-  else if(dynamic_cast<CfdDatacouplingMPI*>(dc_) && 0 != couple_nevery_)
-  {
-    if(comm->me == 0) error->message(FLERR,"couple_every as specified in LIGGGHTS is overriden by calling external program",1);
-  }
 
   iarg_ = dc_->get_iarg();
 
@@ -135,6 +104,9 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
       }
   }
 
+  ts_create_ = update->ntimestep;
+
+  couple_this_ = 0;
 }
 
 /* ---------------------------------------------------------------------- */

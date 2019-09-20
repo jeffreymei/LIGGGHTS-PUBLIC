@@ -1,42 +1,35 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    Anton Gladky(TU Bergakademie Freiberg), gladky.anton@gmail.com
+/* ----------------------------------------------------------------------
+   Contributing author:
+   Anton Gladky(TU Bergakademie Freiberg), gladky.anton@gmail.com
 ------------------------------------------------------------------------- */
 
 #ifdef LAMMPS_VTK
-#include <string.h>
+#include "string.h"
 #include "dump_atom_vtk.h"
 #include "atom.h"
 #include "group.h"
@@ -58,22 +51,17 @@
 #include<vtkUnstructuredGrid.h>
 #include<vtkXMLUnstructuredGridWriter.h>
 
-#ifdef vtkGenericDataArray_h
-#define InsertNextTupleValue InsertNextTypedTuple
-#endif
-
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-DumpATOMVTK::DumpATOMVTK(LAMMPS *lmp, int narg, char **arg) :
-    Dump(lmp, narg, arg),
-    tmpEXP(lmp)
+DumpATOMVTK::DumpATOMVTK(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
 {
   if (narg != 5) error->all(FLERR,"Illegal dump command");
-  if (multiproc) error->all(FLERR,"Invalid dump filename");
+  if (binary || multiproc) error->all(FLERR,"Invalid dump filename");
 
-  sortBuffer = new SortBuffer(lmp, true);
+  sort_flag = 1;
+  sortcol = 0;
 
   size_one = 17;
 
@@ -239,9 +227,7 @@ void DumpATOMVTK::vtkExportData::setFileName(const char * fileName) {
 
 /* ---------------------------------------------------------------------- */
 
-DumpATOMVTK::vtkExportData::vtkExportData(LAMMPS *lmp) :
-    DumpVTK(lmp)
-{
+DumpATOMVTK::vtkExportData::vtkExportData() {
   _setFileName=false;
 }
 /* ---------------------------------------------------------------------- */
@@ -326,7 +312,7 @@ void DumpATOMVTK::vtkExportData::writeSER() {
   spheresUg->GetPointData()->AddArray(spheresForce);
 
   vtkSmartPointer<vtkXMLUnstructuredGridWriter> writer = vtkSmartPointer<vtkXMLUnstructuredGridWriter>::New();
-  setVtkWriterOptions(vtkXMLWriter::SafeDownCast(writer));
+  writer->SetDataModeToAscii();
 #if VTK_MAJOR_VERSION < 6
   writer->SetInput(spheresUg);
 #else
@@ -370,23 +356,4 @@ void DumpATOMVTK::setFileCurrent() {
     *ptr = '*';
   }
 }
-
-/* ---------------------------------------------------------------------- */
-
-int DumpATOMVTK::vtkExportData::modify_param(int narg, char **arg)
-{
-    const int mvtk = DumpVTK::modify_param(narg, arg);
-    if (mvtk > 0)
-        return mvtk;
-
-    return 0;
-}
-
-/* ---------------------------------------------------------------------- */
-
-int DumpATOMVTK::modify_param(int narg, char **arg)
-{
-    return tmpEXP.modify_param(narg, arg);
-}
-
 #endif

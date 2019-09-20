@@ -1,53 +1,36 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <string.h>
+#include "math.h"
+#include "string.h"
 #include "compute_pair_gran_local.h"
 #include "atom.h"
 #include "update.h"
 #include "force.h"
 #include "pair.h"
 #include "pair_gran.h"
-#include "pair_gran_proxy.h"
 #include "modify.h"
 #include "neighbor.h"
 #include "neigh_request.h"
@@ -58,7 +41,6 @@
 #include "pair_gran.h"
 #include "domain.h"
 #include "fix_heat_gran_conduction.h"
-#include "fix_multisphere.h"
 #include "fix_wall_gran.h"
 #include "vector_liggghts.h"
 
@@ -68,50 +50,37 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-ComputePairGranLocal::ComputePairGranLocal(LAMMPS *lmp, int &iarg, int narg, char **arg) :
-  Compute(lmp, iarg, narg, arg)
+ComputePairGranLocal::ComputePairGranLocal(LAMMPS *lmp, int narg, char **arg) :
+  Compute(lmp, narg, arg)
 {
-  if (narg < iarg) error->all(FLERR,"Illegal compute pair/gran/local or wall/gran/local command");
+  if (narg < 3) error->all(FLERR,"Illegal compute pair/gran/local or wall/gran/local command");
 
   local_flag = 1;
   nmax = 0;
   array = NULL;
 
   // store everything by default expect heat flux
-  posflag = velflag = idflag = fflag = torqueflag = histflag = areaflag = 1;
+  posflag = velflag = idflag = fflag = tflag = hflag = aflag = 1;
 
-  // do not store fn, ft, heat flux, delta by default
-  fnflag = ftflag  = torquenflag = torquetflag = deltaflag = heatflag = cpflag = msidflag = 0;
-
-  //no extra distance for building the list of pairs
-  verbose = false;
+  // do not store heat flux by default
+  hfflag = 0;
 
   // if further args, store only the properties that are listed
-  if(narg > iarg)
-     posflag = velflag = idflag = fflag = fnflag = ftflag = torqueflag = torquenflag = torquetflag = histflag = areaflag = deltaflag = heatflag = cpflag = msidflag = 0;
+  if(narg > 3)
+     posflag = velflag = idflag = fflag = tflag = hflag = aflag = 0;
 
-  for (; iarg < narg; iarg++)
+  for (int iarg = 3; iarg < narg; iarg++)
   {
     //int i = iarg-3;
     if (strcmp(arg[iarg],"pos") == 0) posflag = 1;
     else if (strcmp(arg[iarg],"vel") == 0) velflag = 1;
     else if (strcmp(arg[iarg],"id") == 0) idflag = 1;
     else if (strcmp(arg[iarg],"force") == 0) fflag = 1;
-    else if (strcmp(arg[iarg],"force_normal") == 0) fnflag = 1;
-    else if (strcmp(arg[iarg],"force_tangential") == 0) ftflag = 1;
-    else if (strcmp(arg[iarg],"torque") == 0) torqueflag = 1;
-    else if (strcmp(arg[iarg],"torque_normal") == 0) torquenflag = 1;
-    else if (strcmp(arg[iarg],"torque_tangential") == 0) torquetflag = 1;
-    else if (strcmp(arg[iarg],"history") == 0) histflag = 1;
-    else if (strcmp(arg[iarg],"contactArea") == 0) areaflag = 1;
-    else if (strcmp(arg[iarg],"delta") == 0) deltaflag = 1;
-    else if (strcmp(arg[iarg],"heatFlux") == 0) heatflag = 1;
-    else if (strcmp(arg[iarg],"contactPoint") == 0) cpflag = 1;
-    else if (strcmp(arg[iarg],"ms_id") == 0) msidflag = 1;
-    else if (strcmp(arg[iarg],"verbose") == 0) verbose = true;
-    else if (strcmp(arg[iarg],"extraSurfDistance") == 0) error->all(FLERR,"this keyword is deprecated; neighbor->contactDistanceFactor is now used directly");
-    else if(0 == strcmp(style,"wall/gran/local") || 0 == strcmp(style,"pair/gran/local"))
-        error->compute_error(FLERR,this,"illegal/unrecognized keyword");
+    else if (strcmp(arg[iarg],"torque") == 0) tflag = 1;
+    else if (strcmp(arg[iarg],"history") == 0) hflag = 1;
+    else if (strcmp(arg[iarg],"contactArea") == 0) aflag = 1;
+    else if (strcmp(arg[iarg],"heatFlux") == 0) hfflag = 1;
+    else error->compute_error(FLERR,this,"Invalid keyword");
   }
 
   // default: pair data
@@ -134,6 +103,11 @@ ComputePairGranLocal::~ComputePairGranLocal()
   memory->destroy(array);
 
   if(reference_exists == 0) return;
+
+  if(wall == 0) pairgran->unregister_compute_pair_local(this);
+  else fixwall->unregister_compute_wall_local(this);
+
+  if(fixheat) fixheat->unregister_compute_pair_local(this);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -150,24 +124,10 @@ void ComputePairGranLocal::post_create()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputePairGranLocal::pre_delete(bool uncomputeflag)
-{
-    if(uncomputeflag)
-    {
-      if(wall == 0) pairgran->unregister_compute_pair_local(this);
-      else fixwall->unregister_compute_wall_local(this);
-
-      if(fixheat) fixheat->unregister_compute_pair_local(this);
-    }
-}
-
-/* ---------------------------------------------------------------------- */
-
 void ComputePairGranLocal::init()
 {
     init_cpgl(false); 
     
-    fix_ms = static_cast<FixMultisphere*>(modify->find_fix_style("multisphere",0));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -225,19 +185,16 @@ void ComputePairGranLocal::init_cpgl(bool requestflag)
       }
 
       // register heat transfer fix if applicable
-      if(heatflag)
+      if(hfflag)
       {
           for(ifix = 0; ifix < modify->nfix; ifix++)
           {
-              if(
-                    (0 == strcmp(modify->fix[ifix]->style,"heat/gran")) ||
-                    (0 == strcmp(modify->fix[ifix]->style,"heat/gran/conduction"))
-                )
+              if(strcmp(modify->fix[ifix]->style,"heat/gran/conduction") == 0)
               {
                   fixheat = static_cast<FixHeatGranCond*>(modify->fix[ifix]);
               }
           }
-          if(!fixheat) error->all(FLERR,"Compute pair/gran/local can not calculate heat flux values since no fix heat/gran/conduction not compute them");
+          if(!fixheat) error->warning(FLERR,"Compute pair/gran/local can not calculate heat flux values since no fix heat/gran/conduction not compute them");
 
           // group of this compute and heat transfer fix must be same so same number of pairs is computed
           if(groupbit != fixheat->groupbit) error->all(FLERR,"Compute pair/gran/local group and fix heat/gran/conduction group cannot be different");
@@ -252,30 +209,23 @@ void ComputePairGranLocal::init_cpgl(bool requestflag)
 
       n_wall_fixes = modify->n_fixes_style("wall/gran");
 
-      bool printed_primitive_warning = false;
       for(ifix = 0; ifix < n_wall_fixes; ifix++)
       {
           fwg = static_cast<FixWallGran*>(modify->find_fix_style("wall/gran",ifix));
-          if(fwg->is_mesh_wall())
-              fixwall = fwg;
-          else if (!printed_primitive_warning)
-          {
-              error->warning(FLERR, "Compute wall/gran/local detected primitive wall, output will only happen for mesh wall - particle pairs");
-              printed_primitive_warning = true;
-          }
+          if(fwg->is_mesh_wall()) fixwall = fwg;
       }
 
-      if(!fixwall) error->all(FLERR,"Compute wall/gran/local requires a fix of type wall/gran using one or more mesh walls. This fix has to come before the compute in the script");
+      if(!fixwall) error->all(FLERR,"Compute wall/gran/local requires a fix of type wall/gran using one or more mesh walls. This fix has come before the compute in the script");
       fixwall->register_compute_wall_local(this,dnum);
   }
 
   // at this point we know that ptr is valid
   reference_exists = 1;
 
-  if(histflag && dnum == 0) error->all(FLERR,"Compute pair/gran/local or wall/gran/local can not calculate history values since pair or wall style does not compute them");
+  if(hflag && dnum == 0) error->all(FLERR,"Compute pair/gran/local or wall/gran/local can not calculate history values since pair or wall style does not compute them");
   // standard values: pos1,pos2,id1,id2,extra id for mesh wall,force,torque,contact area
 
-  nvalues = posflag*6 + velflag*6 + idflag*3 + fflag*3 + fnflag*3 + ftflag*3 + torqueflag*3 + torquenflag*3 + torquetflag*3 + histflag*dnum + areaflag + deltaflag + heatflag + cpflag*3 + msidflag*2;
+  nvalues = posflag*6 + velflag*6 + idflag*3 + fflag*3 + tflag*3 + hflag*dnum + aflag + hfflag;
   size_local_cols = nvalues;
 
 }
@@ -305,13 +255,11 @@ void ComputePairGranLocal::compute_local()
 
   // count local entries and compute pair info
 
-  int nCountSurfacesIntersect(0);
-  if(wall == 0) ncount = count_pairs(nCountSurfacesIntersect);            // # pairs is ensured to be the same for pair and heat
-  else          ncount = count_wallcontacts(nCountSurfacesIntersect);     // # wall contacts ensured to be same for wall/gran and heat
+  if(wall == 0) ncount = count_pairs();        // # pairs is ensured to be the same for pair and heat
+  else          ncount = count_wallcontacts(); // # wall contacts ensured to be same for wall/gran and heat
 
-  // only consider rows with overlap (but allocate memory for all)
   if (ncount > nmax) reallocate(ncount);
-  size_local_rows = nCountSurfacesIntersect; 
+  size_local_rows = ncount;
 
   // get pair data
   if(wall == 0)
@@ -340,7 +288,7 @@ void ComputePairGranLocal::compute_local()
    count pairs on this proc
 ------------------------------------------------------------------------- */
 
-int ComputePairGranLocal::count_pairs(int & nCountSurfacesIntersect)
+int ComputePairGranLocal::count_pairs()
 {
   int i,j,m,n,ii,jj,inum,jnum;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
@@ -360,12 +308,10 @@ int ComputePairGranLocal::count_pairs(int & nCountSurfacesIntersect)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
-  double contactDistanceFactorSqr = (neighbor->contactDistanceFactor+1e-16) * (neighbor->contactDistanceFactor+1e-16);
-
   // loop over neighbors of my atoms
   // skip if I or J are not in group
 
-  m = n = nCountSurfacesIntersect = 0;
+  m = n = 0;
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
     if (!(mask[i] & groupbit)) continue;
@@ -388,16 +334,10 @@ int ComputePairGranLocal::count_pairs(int & nCountSurfacesIntersect)
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
-      
-      if (rsq <  (radius[i]+radius[j])*(radius[i]+radius[j])) nCountSurfacesIntersect++;
-      if (rsq > (radius[i]+radius[j])*(radius[i]+radius[j])*contactDistanceFactorSqr) continue;
+      if (rsq >= (radius[i]+radius[j])*(radius[i]+radius[j])) continue;
       m++;
     }
   }
-  if(verbose)
-      printf("ComputePairGranLocal::count_pairs: detected %d pairs , and %d pairs with surface intersection. \n",
-             m, nCountSurfacesIntersect);
-
   return m;
 }
 
@@ -405,18 +345,18 @@ int ComputePairGranLocal::count_pairs(int & nCountSurfacesIntersect)
    count wall contacts on this proc
 ------------------------------------------------------------------------- */
 
-int ComputePairGranLocal::count_wallcontacts(int & nCountWithOverlap)
+int ComputePairGranLocal::count_wallcontacts()
 {
-    return fixwall->n_contacts_local(groupbit, nCountWithOverlap);
+    // account for fix group
+    return fixwall->n_contacts_local(groupbit);
 }
 
 /* ----------------------------------------------------------------------
    add data from particle-particle contact on this proc
 ------------------------------------------------------------------------- */
 
-void ComputePairGranLocal::add_pair(int i,int j,double fx,double fy,double fz,double tor1,double tor2,double tor3,double *hist, const double * const contact_point)
+void ComputePairGranLocal::add_pair(int i,int j,double fx,double fy,double fz,double tor1,double tor2,double tor3,double *hist)
 {
-    
     double del[3],r,rsq,radi,radj,contactArea;
     double *xi,*xj,xi_w[3],xj_w[3],*vi,*vj;
     int nlocal;
@@ -425,22 +365,13 @@ void ComputePairGranLocal::add_pair(int i,int j,double fx,double fy,double fz,do
     if (!(atom->mask[j] & groupbit)) return;
 
     nlocal = atom->nlocal;
-    if (newton_pair == 0 && j >= nlocal && atom->tag[i] <= atom->tag[j]) return;
 
-    double *contact_pos; // unused for pairs
-    if(!decide_add(hist, contact_pos))
-        return;
+    if (newton_pair == 0 && j >= nlocal && atom->tag[i] <= atom->tag[j]) return;
 
     xi = atom->x[i];
     xj = atom->x[j];
     vi = atom->v[i];
     vj = atom->v[j];
-
-    if(ipair>=nmax)
-    {
-        if(screen) fprintf(screen,"ipair: %d, ncount: %d. \n", ipair, ncount);
-        error->one(FLERR,"Attempt to add_pair, but number of pairs (nmax) is too small. Try to increase contact_distance_factor via an appropriate neigh_modify command!");
-    }
 
     int n = 0;
     if(posflag)
@@ -476,79 +407,19 @@ void ComputePairGranLocal::add_pair(int i,int j,double fx,double fy,double fz,do
         array[ipair][n++] = fx;
         array[ipair][n++] = fy;
         array[ipair][n++] = fz;
-        
     }
-    if(fnflag)
-    {
-        double fc[3],fn[3],normal[3];
-
-        vectorConstruct3D(fc,fx,fy,fz);
-        vectorSubtract3D(atom->x[j],atom->x[i],normal);
-        vectorNormalize3D(normal);
-        double fnmag = vectorDot3D(fc,normal);
-        vectorScalarMult3D(normal,fnmag,fn);
-
-        array[ipair][n++] = fn[0];
-        array[ipair][n++] = fn[1];
-        array[ipair][n++] = fn[2];
-    }
-    if(ftflag)
-    {
-        double fc[3],fn[3],ft[3],normal[3];
-
-        vectorConstruct3D(fc,fx,fy,fz);
-        vectorSubtract3D(atom->x[j],atom->x[i],normal);
-        vectorNormalize3D(normal);
-        double fnmag = vectorDot3D(fc,normal);
-        vectorScalarMult3D(normal,fnmag,fn);
-        vectorSubtract3D(fc,fn,ft);
-
-        array[ipair][n++] = ft[0];
-        array[ipair][n++] = ft[1];
-        array[ipair][n++] = ft[2];
-
-    }
-    if(torqueflag)
+    if(tflag)
     {
         array[ipair][n++] = tor1;
         array[ipair][n++] = tor2;
         array[ipair][n++] = tor3;
     }
-    if(torquenflag)
-    {
-        double torc[3],torn[3],normal[3];
-
-        vectorConstruct3D(torc,tor1,tor2,tor3);
-        vectorSubtract3D(atom->x[j],atom->x[i],normal);
-        vectorNormalize3D(normal);
-        const double tornmag = vectorDot3D(torc,normal);
-        vectorScalarMult3D(normal,tornmag,torn);
-
-        array[ipair][n++] = torn[0];
-        array[ipair][n++] = torn[1];
-        array[ipair][n++] = torn[2];
-    }
-    if(torquetflag)
-    {
-        double torc[3],torn[3],tort[3],normal[3];
-
-        vectorConstruct3D(torc,tor1,tor2,tor3);
-        vectorSubtract3D(atom->x[j],atom->x[i],normal);
-        vectorNormalize3D(normal);
-        const double tornmag = vectorDot3D(torc,normal);
-        vectorScalarMult3D(normal,tornmag,torn);
-        vectorSubtract3D(torc,torn,tort);
-
-        array[ipair][n++] = tort[0];
-        array[ipair][n++] = tort[1];
-        array[ipair][n++] = tort[2];
-    }
-    if(histflag)
+    if(hflag)
     {
         for(int d = 0; d < dnum; d++)
            array[ipair][n++] = hist[d];
     }
-    if(areaflag)
+    if(aflag)
     {
         radi = atom->radius[i];
         radj = atom->radius[j];
@@ -558,53 +429,6 @@ void ComputePairGranLocal::add_pair(int i,int j,double fx,double fy,double fz,do
         contactArea = - M_PI/4 * ( (r-radi-radj)*(r+radi-radj)*(r-radi+radj)*(r+radi+radj) )/rsq;
         array[ipair][n++] = contactArea;
         
-    }
-    if(deltaflag)
-    {
-        if(atom->superquadric_flag)
-        {
-          int alpha1_offset = get_history_offset("alpha1_offset");
-          int alpha2_offset = get_history_offset("alpha2_offset");
-          array[ipair][n++] = hist[alpha1_offset]+hist[alpha2_offset];
-        } else {
-          radi = atom->radius[i];
-          radj = atom->radius[j];
-          vectorSubtract3D(atom->x[i],atom->x[j],del);
-          array[ipair][n++] = radi+radj-vectorMag3D(del);
-          
-        }
-    }
-
-    if(cpflag)
-    {
-      double cp[3];
-      if(atom->superquadric_flag)
-      {
-        int contact_point_offset = get_history_offset("contact_point_offset");
-        cp[0] = hist[contact_point_offset];
-        cp[1] = hist[contact_point_offset + 1];
-        cp[2] = hist[contact_point_offset + 2];
-      }
-      else if (atom->shapetype_flag)
-      {
-        vectorCopy3D(contact_point, cp);
-      }
-      else
-      {
-        radi = atom->radius[i];
-        radj = atom->radius[j];
-        for(int dim = 0; dim < 3; dim++)
-          cp[dim] = (atom->x[i][dim]*radj + atom->x[j][dim]*radi)/(radi+radj);
-      }
-
-      array[ipair][n++] = cp[0];
-      array[ipair][n++] = cp[1];
-      array[ipair][n++] = cp[2];
-    }
-    if(msidflag)
-    {
-        array[ipair][n++] = static_cast<double>(fix_ms->belongs_to(i));
-        array[ipair][n++] = static_cast<double>(fix_ms->belongs_to(j));
     }
 
     ipair++;
@@ -619,7 +443,7 @@ void ComputePairGranLocal::add_heat(int i,int j,double hf)
     if (!(atom->mask[i] & groupbit)) return;
     if (!(atom->mask[j] & groupbit)) return;
 
-    if(heatflag)
+    if(hfflag)
     {
         // heat flux is always last value
         array[ipair][nvalues-1] = hf;
@@ -629,16 +453,6 @@ void ComputePairGranLocal::add_heat(int i,int j,double hf)
 
     // inc counter again, since reset in compute_local() after getting pair data
     ipair++;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void ComputePairGranLocal::pair_finalize()
-{
-    // ensure have the right number of entries - i.e. the # of sidata.hasforceupdate occurrancies!
-
-    ncount_added_via_pair = ipair;
-    size_local_rows = ncount_added_via_pair;
 }
 
 /* ----------------------------------------------------------------------
@@ -684,63 +498,11 @@ void ComputePairGranLocal::add_wall_1(int iFMG,int idTri,int iP,double *contact_
         
     }
 
-    if(fflag)
-    {
-        n += 3;
-    }
-
-    if(fnflag)
-    {
-        array[ipair][n++] = contact_point[0];
-        array[ipair][n++] = contact_point[1];
-        array[ipair][n++] = contact_point[2];
-    }
-
-    if(ftflag)
-    {
-        array[ipair][n++] = contact_point[0];
-        array[ipair][n++] = contact_point[1];
-        array[ipair][n++] = contact_point[2];
-    }
-
-    if(torqueflag)
-    {
-        n += 3;
-    }
-    if(torquenflag)
-    {
-        array[ipair][n++] = contact_point[0];
-        array[ipair][n++] = contact_point[1];
-        array[ipair][n++] = contact_point[2];
-    }
-    if(torquetflag)
-    {
-        array[ipair][n++] = contact_point[0];
-        array[ipair][n++] = contact_point[1];
-        array[ipair][n++] = contact_point[2];
-    }
-    if(histflag)
-    {
-        n += dnum;
-    }
-    if(areaflag)
-    {
-        n++;
-    }
-    if(deltaflag)
-    {
-        n++;
-    }
-
-    if(msidflag)
-    {
-        n+=2;
-    }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void ComputePairGranLocal::add_wall_2(int i,double fx,double fy,double fz,double tor1,double tor2,double tor3,double *hist,double rsq, double *normal)
+void ComputePairGranLocal::add_wall_2(int i,double fx,double fy,double fz,double tor1,double tor2,double tor3,double *hist,double rsq)
 {
     double contactArea;
 
@@ -748,21 +510,9 @@ void ComputePairGranLocal::add_wall_2(int i,double fx,double fy,double fz,double
 
     int n = 0;
 
-    double *contact_pos = NULL;
-    
-    if(!decide_add(hist, contact_pos))
-        return;
-
     if(posflag)
     {
-        if (contact_pos)
-        {
-            array[ipair][n++] = contact_pos[0];
-            array[ipair][n++] = contact_pos[1];
-            array[ipair][n++] = contact_pos[2];
-        }
-        else
-            n += 3;
+        n += 3;
         array[ipair][n++] = atom->x[i][0];
         array[ipair][n++] = atom->x[i][1];
         array[ipair][n++] = atom->x[i][2];
@@ -786,83 +536,24 @@ void ComputePairGranLocal::add_wall_2(int i,double fx,double fy,double fz,double
         array[ipair][n++] = fy;
         array[ipair][n++] = fz;
     }
-    if(fnflag)
-    {
-        double fc[3],fn[3];
-
-        vectorConstruct3D(fc,fx,fy,fz);
-        double fnmag = vectorDot3D(fc,normal);
-        vectorScalarMult3D(normal,fnmag,fn);
-
-        array[ipair][n++] = fn[0];
-        array[ipair][n++] = fn[1];
-        array[ipair][n++] = fn[2];
-    }
-    if(ftflag)
-    {
-        double fc[3],fn[3],ft[3];
-
-        vectorConstruct3D(fc,fx,fy,fz);
-        double fnmag = vectorDot3D(fc,normal);
-        vectorScalarMult3D(normal,fnmag,fn);
-        vectorSubtract3D(fc,fn,ft);
-
-        array[ipair][n++] = ft[0];
-        array[ipair][n++] = ft[1];
-        array[ipair][n++] = ft[2];
-    }
-    if(torqueflag)
+    if(tflag)
     {
         array[ipair][n++] = tor1;
         array[ipair][n++] = tor2;
         array[ipair][n++] = tor3;
     }
-    if(torquenflag)
-    {
-        double torc[3],torn[3];
-
-        vectorConstruct3D(torc,tor1,tor2,tor3);
-        const double tornmag = vectorDot3D(torc,normal);
-        vectorScalarMult3D(normal,tornmag,torn);
-
-        array[ipair][n++] = torn[0];
-        array[ipair][n++] = torn[1];
-        array[ipair][n++] = torn[2];
-    }
-    if(torquetflag)
-    {
-        double torc[3],torn[3],tort[3];
-
-        vectorConstruct3D(torc,tor1,tor2,tor3);
-        const double tornmag = vectorDot3D(torc,normal);
-        vectorScalarMult3D(normal,tornmag,torn);
-        vectorSubtract3D(torc,torn,tort);
-
-        array[ipair][n++] = tort[0];
-        array[ipair][n++] = tort[1];
-        array[ipair][n++] = tort[2];
-    }
-    if(histflag)
+    if(hflag)
     {
         for(int d = 0; d < dnum; d++)
            array[ipair][n++] = hist[d];
     }
-    if(areaflag)
+    if(aflag)
     {
         contactArea = (atom->radius[i]*atom->radius[i]-rsq)*M_PI;
         array[ipair][n++] = contactArea;
         
     }
-    if(deltaflag)
-    {
-        array[ipair][n++] = atom->radius[i]-sqrt(rsq);
 
-    }
-    if(msidflag)
-    {
-        n++;
-        array[ipair][n++] = static_cast<double>(fix_ms->belongs_to(i));
-    }
     // wall_1 and wall_2 are always called
 
     ipair++;
@@ -874,13 +565,13 @@ void ComputePairGranLocal::add_heat_wall(int ip,double hf)
 {
     if (!(atom->mask[ip] & groupbit)) return;
 
-    if(heatflag)
+    if(hfflag)
     {
         // heat flux is always last value
         // use ipair -1 , add_heat_wall is not always called
         array[ipair-1][nvalues-1] = hf;
     }
-    //else error->one(FLERR,"Illegal situation in ComputePairGranLocal::add_heat_wall");
+    else error->one(FLERR,"Illegal situation in ComputePairGranLocal::add_heat_wall");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -904,17 +595,4 @@ double ComputePairGranLocal::memory_usage()
 {
   double bytes = nmax*nvalues * sizeof(double);
   return bytes;
-}
-
-int ComputePairGranLocal::get_history_offset(const char * const name)
-{
-    if (pairgran)
-        return static_cast<PairGranProxy*>(pairgran)->get_history_offset(name);
-    else if (fixwall)
-        return fixwall->get_history_offset(name);
-    else
-    {
-        error->all(FLERR, "Internal error");
-        return -1;
-    }
 }

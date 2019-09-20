@@ -1,46 +1,14 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
@@ -58,7 +26,7 @@ namespace LAMMPS_NS {
 
 class ComputePropertyAtom : public Compute {
  public:
-  ComputePropertyAtom(class LAMMPS *, int &iarg, int, char **);
+  ComputePropertyAtom(class LAMMPS *, int, char **);
   ~ComputePropertyAtom();
   void init();
   void compute_peratom();
@@ -82,8 +50,6 @@ class ComputePropertyAtom : public Compute {
   void pack_id(int);
   void pack_molecule(int);
   void pack_type(int);
-  void pack_vol(int);
-  void pack_eq_radius(int n);
   void pack_mass(int);
 
   void pack_x(int);
@@ -135,12 +101,26 @@ class ComputePropertyAtom : public Compute {
   void pack_tqx(int);
   void pack_tqy(int);
   void pack_tqz(int);
+  void pack_spin(int);
+  void pack_eradius(int);
+  void pack_ervel(int);
+  void pack_erforce(int);
   void pack_end1x(int);
   void pack_end1y(int);
   void pack_end1z(int);
   void pack_end2x(int);
   void pack_end2y(int);
   void pack_end2z(int);
+  void pack_corner1x(int);
+  void pack_corner1y(int);
+  void pack_corner1z(int);
+  void pack_corner2x(int);
+  void pack_corner2y(int);
+  void pack_corner2z(int);
+  void pack_corner3x(int);
+  void pack_corner3y(int);
+  void pack_corner3z(int);
+
   void pack_iname(int);
   void pack_dname(int);
 };

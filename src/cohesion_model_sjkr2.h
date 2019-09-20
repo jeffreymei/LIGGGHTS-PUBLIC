@@ -1,46 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Richard Berger (JKU Linz)
+------------------------------------------------------------------------- */
 #ifdef COHESION_MODEL
 COHESION_MODEL(COHESION_SJKR2,sjkr2,2)
 #else
@@ -49,8 +36,7 @@ COHESION_MODEL(COHESION_SJKR2,sjkr2,2)
 
 #include "pointers.h"
 #include "contact_models.h"
-#include "cohesion_model_base.h"
-#include <cmath>
+#include "math.h"
 
 namespace LIGGGHTS {
 namespace ContactModels {
@@ -58,60 +44,54 @@ namespace ContactModels {
   using namespace LAMMPS_NS;
 
   template<>
-  class CohesionModel<COHESION_SJKR2> : public CohesionModelBase {
+  class CohesionModel<COHESION_SJKR2> : protected Pointers {
   public:
-    CohesionModel(LAMMPS * lmp, IContactHistorySetup * hsetup, class ContactModelBase * c) :
-        CohesionModelBase(lmp, hsetup, c),
-        cohEnergyDens(NULL)
+    static const int MASK = CM_CONNECT_TO_PROPERTIES | CM_COLLISION;
+
+    CohesionModel(LAMMPS * lmp, IContactHistorySetup*) : Pointers(lmp), cohEnergyDens(NULL)
     {
-        
+      
     }
 
-    void registerSettings(Settings& settings) 
-    {
-        settings.registerOnOff("tangential_reduce",tangentialReduce_,false);
+    void registerSettings(Settings&) {}
+
+    void connectToProperties(PropertyRegistry & registry) {
+      registry.registerProperty("cohEnergyDens", &MODEL_PARAMS::createCohesionEnergyDensity);
+      registry.connect("cohEnergyDens", cohEnergyDens,"cohesion_model sjkr2");
+
+      // error checks on coarsegraining
+      if(force->cg_active())
+        error->cg(FLERR,"cohesion model sjkr2");
     }
 
-    inline void postSettings(IContactHistorySetup * hsetup, ContactModelBase *cmb) {}
-
-    void connectToProperties(PropertyRegistry & registry)
-    {
-        registry.registerProperty("cohEnergyDens", &MODEL_PARAMS::createCohesionEnergyDensity);
-        registry.connect("cohEnergyDens", cohEnergyDens,"cohesion_model sjkr2");
-
-        // error checks on coarsegraining
-        if(force->cg_active())
-            error->cg(FLERR,"cohesion model sjkr2");
-    }
-
-    void surfacesIntersect(SurfacesIntersectData & sidata, ForceData & i_forces, ForceData & j_forces) 
+    void collision(CollisionData & cdata, ForceData & i_forces, ForceData & j_forces) 
     {
       //r is the distance between the sphere's centers
-      const double r = sidata.r;
-      const double ri = sidata.radi;
-      const double rj = sidata.radj;
+      const double r = cdata.r;
+      const double ri = cdata.radi;
+      const double rj = cdata.radj;
       double Acont;
 
-      if(sidata.is_wall)
-        Acont = M_PI * 2. * ri * (ri - r) * sidata.area_ratio;
+      if(cdata.is_wall)
+        Acont = M_PI * 2. * ri * (ri - r) * cdata.area_ratio;
       else
         Acont = M_PI * 2. * (2.*ri*rj/(ri+rj)) * (ri + rj - r);
 
-      const double Fn_coh = -cohEnergyDens[sidata.itype][sidata.jtype]*Acont;
-      if(tangentialReduce_) sidata.Fn += Fn_coh; 
+      const double Fn_coh = -cohEnergyDens[cdata.itype][cdata.jtype]*Acont;
+      cdata.Fn += Fn_coh;
 
-      if(sidata.contact_flags) *sidata.contact_flags |= CONTACT_COHESION_MODEL;
+      if(cdata.touch) *cdata.touch |= TOUCH_COHESION_MODEL;
 
       // apply normal force
-      if(sidata.is_wall) {
-        const double Fn_ = Fn_coh * sidata.area_ratio;
-        i_forces.delta_F[0] += Fn_ * sidata.en[0];
-        i_forces.delta_F[1] += Fn_ * sidata.en[1];
-        i_forces.delta_F[2] += Fn_ * sidata.en[2];
+      if(cdata.is_wall) {
+        const double Fn_ = Fn_coh * cdata.area_ratio;
+        i_forces.delta_F[0] += Fn_ * cdata.en[0];
+        i_forces.delta_F[1] += Fn_ * cdata.en[1];
+        i_forces.delta_F[2] += Fn_ * cdata.en[2];
       } else {
-        const double fx = Fn_coh * sidata.en[0];
-        const double fy = Fn_coh * sidata.en[1];
-        const double fz = Fn_coh * sidata.en[2];
+        const double fx = Fn_coh * cdata.en[0];
+        const double fy = Fn_coh * cdata.en[1];
+        const double fz = Fn_coh * cdata.en[2];
 
         i_forces.delta_F[0] += fx;
         i_forces.delta_F[1] += fy;
@@ -123,18 +103,15 @@ namespace ContactModels {
       }
     }
 
-    inline void endSurfacesIntersect(SurfacesIntersectData &sidata, ForceData&, ForceData&) {}
-    void beginPass(SurfacesIntersectData&, ForceData&, ForceData&){}
-    void endPass(SurfacesIntersectData&, ForceData&, ForceData&){}
-
-    void surfacesClose(SurfacesCloseData& scdata, ForceData&, ForceData&)
+    void beginPass(CollisionData&, ForceData&, ForceData&){}
+    void endPass(CollisionData&, ForceData&, ForceData&){}
+    void noCollision(ContactData& cdata, ForceData&, ForceData&)
     {
-        if(scdata.contact_flags) *scdata.contact_flags &= ~CONTACT_COHESION_MODEL;
+        if(cdata.touch) *cdata.touch &= ~TOUCH_COHESION_MODEL;
     }
 
   private:
     double ** cohEnergyDens;
-    bool tangentialReduce_;
   };
 }
 }

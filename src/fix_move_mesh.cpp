@@ -1,45 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
+   Richard Berger (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #include "fix_move_mesh.h"
@@ -51,7 +39,6 @@
 #include "update.h"
 #include "mesh_mover.h"
 #include "container.h"
-#include "style_mesh_mover.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -76,25 +63,12 @@ FixMoveMesh::FixMoveMesh(LAMMPS *lmp, int narg, char **arg)
     if(strcmp(arg[iarg++],"mesh"))
       error->all(FLERR,"Illegal fix move/mesh command, expecting keyword 'mesh'");
 
-    fix_mesh_id_ = std::string(arg[iarg++]);
-    fix_mesh_ = dynamic_cast<FixMesh*>(modify->find_fix_id(fix_mesh_id_.c_str()));
+    fix_mesh_ = dynamic_cast<FixMesh*>(modify->find_fix_id(arg[iarg++]));
     if(fix_mesh_ == 0)
         error->all(FLERR,"Illegal fix move/mesh command, illegal mesh ID provided");
 
     mesh_ = fix_mesh_->mesh();
-
-    // create mesh movement class
-    if (false)
-        ;
-    #define MESHMOVER_CLASS
-    #define MeshMoverStyle(name, Class) \
-    else if (strcmp(arg[iarg], #name) == 0) \
-        move_ = new Class(lmp, mesh_, this, &arg[iarg], narg-iarg);
-    #include "style_mesh_mover.h"
-    #undef MeshMoverStyle
-    #undef MESHMOVER_CLASS
-    else
-        error->all(FLERR, "Mesh movement type not available");
+    move_ = createMeshMover(lmp,mesh_,this,&arg[iarg],narg-iarg);
 
     if(move_ == 0)
       error->all(FLERR,"Illegal fix move/mesh command, illegal arguments");
@@ -104,14 +78,12 @@ FixMoveMesh::FixMoveMesh(LAMMPS *lmp, int narg, char **arg)
     if(fix_mesh_->surfaceVel())
       error->all(FLERR,"Illegal fix move/mesh command, cannot apply move to a mesh using keywords 'velocity' or 'angular_velocity'");
 
-    fix_mesh_->register_move(this);
-
     restart_global = 1;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMoveMesh::post_create()
+void FixMoveMesh:: post_create()
 {
     
     move_->post_create();
@@ -156,11 +128,6 @@ void FixMoveMesh::pre_delete(bool unfixflag)
 
     }
 
-    // need to check if the mesh still exists
-    FixMesh * fix_mesh = dynamic_cast<FixMesh*>(modify->find_fix_id(fix_mesh_id_.c_str()));
-    if (fix_mesh)
-        fix_mesh->unregister_move(this);
-
     delete move_;
 }
 
@@ -179,14 +146,6 @@ int FixMoveMesh::setmask()
     mask |= INITIAL_INTEGRATE;
     mask |= FINAL_INTEGRATE;
     return mask;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixMoveMesh::init()
-{
-    reset_reference_point();
-    move_->init();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -339,26 +298,9 @@ void FixMoveMesh::reset_reference_point()
         return;
 
     // set value for property
-    double point[3];
-    refpt->get(0,point);
-    
     refpt->set(0,reference_point_);
 
     // set orig value for property
     mesh_->prop().storeGlobalPropOrig(refpt_id);
 
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixMoveMesh::move(const double * const dx)
-{
-    move_->move(dx);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixMoveMesh::rotate(const double dphi, const double * const axis, const double * const center)
-{
-    move_->rotate(dphi, axis, center);
 }

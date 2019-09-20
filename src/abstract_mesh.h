@@ -1,50 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_ABSTRACT_MESH_H
 #define LMP_ABSTRACT_MESH_H
 
 #include "pointers.h"
-#include <list>
-#include <string>
 
 namespace LAMMPS_NS
 {
@@ -60,31 +42,27 @@ namespace LAMMPS_NS
 
         virtual void setPrecision(double _precision) = 0;
 
-        virtual void setMinFeatureLength(double _min_feature_length) = 0;
-
-        virtual void setElementExclusionList(FILE *_file) = 0;
-
         virtual void autoRemoveDuplicates() = 0;
 
         // scale mesh
         virtual void scale(double factor) = 0;
 
         // linear move w/ total and incremental displacement
-        virtual void move(const double *vecTotal, const double *vecIncremental) = 0;
+        virtual void move(double *vecTotal, double *vecIncremental) = 0;
 
         // linear move w/ incremental displacement
-        virtual void move(const double *vecIncremental) = 0;
+        virtual void move(double *vecIncremental) = 0;
 
         // rotation w/ total and incremental displacement
         //   calls rotate(double *totalQuat,double *dQuat,double *displacement)
-        virtual void rotate(const double totalAngle, const double dAngle, const double * const axis, const double * const p) = 0;
+        virtual void rotate(double totalAngle, double dAngle, double *axis, double *p) = 0;
 
         // rotation w/ incremental displacement
         //   calls rotate(double *dQuat,double *displacement)
-        virtual void rotate(const double dAngle, const double * const axis, const double * const p) = 0;
+        virtual void rotate(double dAngle, double *axis, double *p) = 0;
 
         // rotation using quaternions
-        virtual void rotate(const double * const totalQ, const double * const dQ, const double * const origin) = 0;
+        virtual void rotate(double *totalQ, double *dQ,double *origin) = 0;
 
         // initialize movement
         virtual bool registerMove(bool _scale, bool _translate, bool _rotate) = 0;
@@ -100,16 +78,11 @@ namespace LAMMPS_NS
         // neigh list stuff for moving mesh
         virtual bool decideRebuild() = 0;
 
-        // reset node positions
-        virtual void storeNodePosOrig(int ilo, int ihi) = 0;
-
-        virtual void initialSetup() = 0;
+        virtual void initalSetup() = 0;
         virtual void pbcExchangeBorders(int setupFlag) = 0;
         virtual void clearReverse() = 0;
-        virtual void forwardComm(std::list<std::string> * properties = NULL) = 0;
-        virtual void forwardComm(std::string) = 0;
-        virtual void reverseComm(std::list<std::string> * properties = NULL) = 0;
-        virtual void reverseComm(std::string) = 0;
+        virtual void forwardComm() = 0;
+        virtual void reverseComm() = 0;
 
         virtual void writeRestart(FILE *fp) = 0;
         virtual void restart(double *list) = 0;
@@ -131,7 +104,9 @@ namespace LAMMPS_NS
 
         virtual void check_element_property_consistency() = 0;
 
-        virtual void extrudePlanarMesh(const double length, double * &extrusion_tri_nodes, int &extrusion_tri_count) = 0;
+        virtual int nBelowAngle() = 0;
+        virtual double angleLimit() = 0;
+        virtual int nTooManyNeighs() = 0;
 
         // size includes owned and ghost elements
         inline int size()

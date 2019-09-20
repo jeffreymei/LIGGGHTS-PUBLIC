@@ -1,54 +1,22 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
    Contributing author: Pieter in 't Veld (SNL)
 ------------------------------------------------------------------------- */
 
-#include <stdlib.h>
-#include <string.h>
+#include "stdlib.h"
+#include "string.h"
 #include "unistd.h"
 #include "fix_ave_spatial.h"
 #include "atom.h"
@@ -73,6 +41,7 @@ enum{SAMPLE,ALL};
 enum{BOX,LATTICE,REDUCED};
 enum{ONE,RUNNING,WINDOW};
 
+#define INVOKED_PERATOM 8
 #define BIG 1000000000
 
 /* ---------------------------------------------------------------------- */
@@ -91,8 +60,6 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
   global_freq = nfreq;
   no_change_box = 1;
 
-  write_ts_ = true;
-
   ndim = 0;
   int iarg = 6;
   while (iarg < narg && ndim < 3) {
@@ -109,7 +76,7 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
     else if (strcmp(arg[iarg+1],"center") == 0) originflag[ndim] = CENTER;
     else if (strcmp(arg[iarg+1],"upper") == 0) originflag[ndim] = UPPER;
     else originflag[ndim] = COORD;
-    if (originflag[ndim] == COORD)
+    if (originflag[ndim] == COORD) 
       origin[ndim] = force->numeric(FLERR,arg[iarg+1]);
 
     delta[ndim] = force->numeric(FLERR,arg[iarg+2]);
@@ -194,7 +161,7 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
   // optional args
 
   normflag = ALL;
-  scaleflag = BOX; 
+  scaleflag = LATTICE;
   regionflag = 0;
   idregion = NULL;
   fp = NULL;
@@ -239,19 +206,11 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
       if (me == 0) {
         fp = fopen(arg[iarg+1],"w");
         if (fp == NULL) {
-          char str[512];
+          char str[128];
           sprintf(str,"Cannot open fix ave/spatial file %s",arg[iarg+1]);
           error->one(FLERR,str);
         }
       }
-      iarg += 2;
-    } else if (strcmp(arg[iarg],"write_ts") == 0) { 
-      if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/spatial command");
-      if(strcmp(arg[iarg+1],"yes") == 0)
-        write_ts_ = true;
-      else if(strcmp(arg[iarg+1],"no") == 0)
-        write_ts_ = false;
-      else error->all(FLERR,"Illegal fix ave/spatial command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"ave") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/spatial command");
@@ -298,7 +257,7 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
       if (me == 0) {
         fp2 = fopen(arg[iarg+3],"w");
         if (fp2 == NULL) {
-          char str[512];
+          char str[128];
           sprintf(str,"Cannot open fix ave/spatial file %s",arg[iarg+3]);
           error->one(FLERR,str);
         }
@@ -368,13 +327,13 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
   // print file comment lines
 
   if (fp && me == 0) {
-    if (title1 && strlen (title1) > 1) fprintf(fp,"%s\n",title1);
-    else if(!title1) fprintf(fp,"# Spatial-averaged data for fix %s and group %s\n",
+    if (title1) fprintf(fp,"%s\n",title1);
+    else fprintf(fp,"# Spatial-averaged data for fix %s and group %s\n",
                  id,arg[1]);
-    if (title2 && strlen (title2) > 1) fprintf(fp,"%s\n",title2);
-    else if(!title2) fprintf(fp,"# Timestep Number-of-bins\n");
-    if (title3 && strlen (title3) > 1) fprintf(fp,"%s\n",title3);
-    else if(!title3) {
+    if (title2) fprintf(fp,"%s\n",title2);
+    else fprintf(fp,"# Timestep Number-of-bins\n");
+    if (title3) fprintf(fp,"%s\n",title3);
+    else {
       if (ndim == 1) fprintf(fp,"# Bin Coord Ncount");
       else if (ndim == 2) fprintf(fp,"# Bin Coord1 Coord2 Ncount");
       else if (ndim == 3) fprintf(fp,"# Bin Coord1 Coord2 Coord3 Ncount");
@@ -799,34 +758,22 @@ void FixAveSpatial::end_of_step()
   double repeat = nrepeat;
   double mv2d = force->mv2d;
 
-  if (normflag == ALL)
-  {
+  if (normflag == ALL) {
     MPI_Allreduce(count_many,count_sum,nbins,MPI_DOUBLE,MPI_SUM,world);
     MPI_Allreduce(&values_many[0][0],&values_sum[0][0],nbins*nvalues,
                   MPI_DOUBLE,MPI_SUM,world);
-    for (m = 0; m < nbins; m++)
-    {
+    for (m = 0; m < nbins; m++) {
       if (count_sum[m] > 0.0)
-      {
         for (j = 0; j < nvalues; j++)
-        {
-          if (which[j] == DENSITY_NUMBER)
-            values_sum[m][j] /= repeat;
-          else if (which[j] == DENSITY_MASS)
-            values_sum[m][j] *= mv2d/repeat;
-          else
-            values_sum[m][j] /= count_sum[m];
-        }
-      }
+          if (which[j] == DENSITY_NUMBER) values_sum[m][j] /= repeat;
+          else if (which[j] == DENSITY_MASS) values_sum[m][j] *= mv2d/repeat;
+          else values_sum[m][j] /= count_sum[m];
       count_sum[m] /= repeat;
     }
-  }
-  else
-  {
+  } else {
     MPI_Allreduce(&values_many[0][0],&values_sum[0][0],nbins*nvalues,
                   MPI_DOUBLE,MPI_SUM,world);
-    for (m = 0; m < nbins; m++)
-    {
+    for (m = 0; m < nbins; m++) {
       for (j = 0; j < nvalues; j++)
         values_sum[m][j] /= repeat;
       count_sum[m] /= repeat;
@@ -885,7 +832,7 @@ void FixAveSpatial::end_of_step()
 
   if (fp && me == 0) {
     if (overwrite) fseek(fp,filepos,SEEK_SET);
-    if(write_ts_) fprintf(fp,BIGINT_FORMAT " %d\n",ntimestep,nbins);
+    fprintf(fp,BIGINT_FORMAT " %d\n",ntimestep,nbins);
     if (ndim == 1)
       for (m = 0; m < nbins; m++) {
         fprintf(fp,"  %d %g %g",m+1,coord[m][0],
@@ -966,7 +913,7 @@ void FixAveSpatial::end_of_step()
         }
       }
     }
-
+    
     if (n_samples != 0) {
       for (i = 0; i < nvalues; i++) {
         samples_average = count_samples / n_samples; // average # particles per sample

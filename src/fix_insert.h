@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
-    Richard Berger (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2015 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -47,10 +31,6 @@
 #define LMP_FIX_INSERT_H
 
 #include "fix.h"
-#include "bounding_box.h"
-#include "region_neighbor_list.h"
-#include "fix_particledistribution_discrete.h"
-#include "update.h"
 
 namespace LAMMPS_NS {
 
@@ -61,10 +41,9 @@ class FixInsert : public Fix {
 
   virtual int setmask();
   virtual void init();
-  void reset_timestep(bigint newstep,bigint oldstep);
   virtual void setup_pre_exchange() {}
   void setup(int vflag);
-  virtual double extend_cut_ghost();
+  double extend_cut_ghost();
   void pre_exchange();
   virtual void end_of_step() {}
 
@@ -83,12 +62,6 @@ class FixInsert : public Fix {
 
   int ins_every()
   { return insert_every; }
-
-  FixParticledistributionDiscrete * get_distribution()
-  { return fix_distribution; }
-
-  bool has_inserted() const
-  { return most_recent_ins_step == update->ntimestep; }
 
  protected:
 
@@ -145,9 +118,6 @@ class FixInsert : public Fix {
 
   // flag if overlap is checked upon insertion (via all-to-all comm)
   int check_ol_flag;
-#ifdef SUPERQUADRIC_ACTIVE_FLAG
-  int check_obb_flag;
-#endif
 
   // if flag is 1, particles are generated to be in the region as a whole
   // if flag is 0, particles centers are in region
@@ -156,7 +126,8 @@ class FixInsert : public Fix {
   int maxattempt;
 
   // positions generated, and for overlap check
-  RegionNeighborList<interpolate_no> &neighList;
+  int nspheres_near;
+  double **xnear;
 
   // velocity and ang vel distribution
   // currently constant for omega - could also be a distribution
@@ -184,11 +155,8 @@ class FixInsert : public Fix {
   // warn if box extent too small for insertion
   bool warn_boxentent;
 
-  // compress atom tags upon insertion
-  bool compress_flag;
-
   class FixMultisphere *fix_multisphere;
-  class Multisphere *multisphere;
+  class MultisphereParallel *multisphere;
 
   /*---FUNCTION MEMBERS---*/
 
@@ -199,36 +167,20 @@ class FixInsert : public Fix {
   virtual void sanity_check();
   virtual void calc_insertion_properties() = 0;
 
-  virtual bool pre_insert() { return true; }
+  virtual void pre_insert() {};
   virtual int calc_ninsert_this();
   virtual int load_xnear(int);
+  virtual int count_nnear();
   virtual int is_nearby(int) = 0;
-  virtual BoundingBox getBoundingBox() = 0;
 
-  virtual void init_list(const int ninsert_this_local)
-  { fix_distribution->random_init_list(ninsert_this_local); }
-  virtual int generate_list(const int ninsert_this_local, const int groupbit, const int exact_number)
-  { return fix_distribution->randomize_list(ninsert_this_local, groupbit, exact_number); }
   virtual void x_v_omega(int,int&,int&,double&) = 0;
   virtual double insertion_fraction() = 0;
 
   virtual void finalize_insertion(int){};
 
-  bool has_set_property() const
-  { return property_name != NULL && fix_property != NULL; }
-
- protected:
-  void generate_random_velocity(double * velocity);
-
  private:
 
-  char *property_name;
-  class FixPropertyAtom *fix_property;
-  double fix_property_value;
-
   bool setup_flag;
-
-  class Irregular *irregular;
 
   virtual int distribute_ninsert_this(int);
 };

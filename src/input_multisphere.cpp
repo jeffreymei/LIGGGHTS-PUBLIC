@@ -1,48 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "mpi.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "ctype.h"
 #include "style_command.h"
 #include "universe.h"
@@ -145,11 +129,7 @@ int InputMultisphere::clmpfile(double **xclmp,double *rclmp,int *atomtypeclmp,in
     if(iClmp >= nclmps)
         error->all(FLERR,"Number of clumps in file larger than number specified");
 
-    if(0 == atomtypeclmp && 0 == rclmp && (narg < 3))
-        error->all(FLERR,"Not enough arguments in one line of file for non-spherical particle, need to specify "
-                         "[xcoo ycoo zcoo] in each line");
-
-    if((0 == atomtypeclmp) && rclmp && (narg < 4))
+    if((0 == atomtypeclmp) && (narg < 4))
         error->all(FLERR,"Not enough arguments in one line of clump file, need to specify "
                          "[xcoo ycoo zcoo radius] in each line");
 
@@ -157,8 +137,7 @@ int InputMultisphere::clmpfile(double **xclmp,double *rclmp,int *atomtypeclmp,in
         error->all(FLERR,"Not enough arguments in one line of clump file, need to specify "
                          "[xcoo ycoo zcoo radius type] in each line");
 
-    if(rclmp)
-        rclmp[iClmp] = atof(arg[3]);
+    rclmp[iClmp] = atof(arg[3]);
     if(atomtypeclmp)
         atomtypeclmp[iClmp] = atoi(arg[4]);
 
@@ -182,7 +161,7 @@ void InputMultisphere::clmpfile(const char *filename, double **xclmp,double *rcl
     nonlammps_file = fopen(filename,"r");
     if (nonlammps_file == NULL)
     {
-      char str[512];
+      char str[128];
       sprintf(str,"Cannot open clump file %s",filename);
       error->one(FLERR,str);
     }

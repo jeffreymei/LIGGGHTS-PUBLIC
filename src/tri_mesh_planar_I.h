@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_TRI_MESH_PLANAR_I_H
@@ -52,6 +36,7 @@
 inline int TriMeshPlanar::generateRandomOwnedGhostWithin(double *pos,double delta)
 {
     int i, iSrf, iSrfCheck, iSrfCheckEdge, ntry;
+    double dist;
     bool farEnoughAway;
 
     ntry = 0;
@@ -69,20 +54,15 @@ inline int TriMeshPlanar::generateRandomOwnedGhostWithin(double *pos,double delt
             i = 0;
             while(i < 2*NUM_NODES && nearestActiveEdgeID_(iSrf)[i] >= 0 && farEnoughAway)
             {
-                double min_dist = 2.0*delta;
-                const int nTri_j = TrackingMesh<NUM_NODES>::map_size(nearestActiveEdgeID_(iSrf)[i]);
+                iSrfCheck = TrackingMesh<NUM_NODES>::map
+                (
+                    nearestActiveEdgeID_(iSrf)[i]
+                );
+                iSrfCheckEdge = nearestActiveEdgeIndex_(iSrf)[i];
 
-                for (int j = 0; j < nTri_j; j++)
-                {
-                    iSrfCheck = TrackingMesh<NUM_NODES>::map(nearestActiveEdgeID_(iSrf)[i], j);
-                    iSrfCheckEdge = nearestActiveEdgeIndex_(iSrf)[i];
+                dist = edgePointDist(iSrfCheck,iSrfCheckEdge,pos);
 
-                    const double dist = edgePointDist(iSrfCheck,iSrfCheckEdge,pos);
-                    if (dist < min_dist)
-                        min_dist = dist;
-                }
-
-                if(min_dist < delta)
+                if(dist < delta)
                     farEnoughAway = false;
 
                 i++;
@@ -136,18 +116,18 @@ inline bool TriMeshPlanar::locatePosition(double *pos,int &triID,double *bary,do
 
 inline bool TriMeshPlanar::constructPositionFromBary(int triID,double *bary,double *pos)
 {
-    
-    if (TrackingMesh<3>::map_size(triID) > 1)
-        error->one(FLERR, "Internal error - implementation missing");
-
-    int itri = TrackingMesh<3>::map(triID, 0);
+    int itri = TrackingMesh<3>::map(triID);
 
     if(itri < 0) return false;
 
+    double tmp[3];
     vectorZeroize3D(pos);
 
     for(int i = 0; i < 3; i++)
-        vectorAddMultiple3D(pos, bary[i], node_(itri)[i], pos);
+    {
+        vectorScalarMult3D(node_(itri)[i],bary[i],tmp);
+        vectorAdd3D(pos,tmp,pos);
+    }
 
     return true;
 }

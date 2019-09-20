@@ -1,44 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #include "custom_value_tracker.h"
@@ -52,7 +40,7 @@ using namespace LAMMPS_NS;
   CustomValueTracker::CustomValueTracker(LAMMPS *lmp,AbstractMesh *_ownerMesh)
    : Pointers(lmp),
      ownerMesh_(_ownerMesh),
-     capacityElement_(GROW_CONTAINER()) 
+     capacityElement_(0)
   {
   }
 
@@ -65,6 +53,15 @@ using namespace LAMMPS_NS;
 
   CustomValueTracker::~CustomValueTracker()
   {
+  }
+
+  /* ----------------------------------------------------------------------
+   memory management
+  ------------------------------------------------------------------------- */
+
+  int CustomValueTracker::getCapacity()
+  {
+    return capacityElement_;
   }
 
   /* ----------------------------------------------------------------------
@@ -119,40 +116,17 @@ using namespace LAMMPS_NS;
   }
 
   /* ----------------------------------------------------------------------
-   calc statistics (averages, mean square)
-  ------------------------------------------------------------------------- */
-
-  bool CustomValueTracker::calcStatistics()
-  {
-      return elementProperties_.calcStatistics();
-  }
-
-  void CustomValueTracker::setWeightingFactor(double _weighting_factor)
-  {
-      for (int i=0; i < elementProperties_.size(); ++i)
-      {
-          ContainerBase* iElem = elementProperties_.getBasePointerByIndex(i);
-          if (iElem->getStatLevel() < 2)
-              iElem->setWeightingFactor(_weighting_factor);
-          else
-              //TODO: hard coded different weighting factor for higher statistics level
-              // compare with CustomValueTracker::addElementProperty
-              iElem->setWeightingFactor(5*_weighting_factor);
-      }
-  }
-
-  /* ----------------------------------------------------------------------
    rotate all properties, applies to vector and multivector only
   ------------------------------------------------------------------------- */
 
-  void CustomValueTracker::rotate(const double * const totalQ, const double * const dQ)
+  void CustomValueTracker::rotate(double *totalQ,double *dQ)
   {
       
       elementProperties_.rotate(dQ);
       globalProperties_.rotate(totalQ);
   }
 
-  void CustomValueTracker::rotate(const double * const dQ)
+  void CustomValueTracker::rotate(double *dQ)
   {
       
       elementProperties_.rotate(dQ);
@@ -174,14 +148,14 @@ using namespace LAMMPS_NS;
    move all properties
   ------------------------------------------------------------------------- */
 
-  void CustomValueTracker::move(const double * const vecTotal, const double * const vecIncremental)
+  void CustomValueTracker::move(double *vecTotal, double *vecIncremental)
   {
       
       elementProperties_.move(vecIncremental);
       globalProperties_.move(vecTotal);
   }
 
-  void CustomValueTracker::move(const double * const vecIncremental)
+  void CustomValueTracker::move(double *vecIncremental)
   {
       
       elementProperties_.move(vecIncremental);

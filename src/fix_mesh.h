@@ -1,44 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -48,15 +36,12 @@
 #ifndef LMP_FIX_MESH_H
 #define LMP_FIX_MESH_H
 
-#include "fix_base_liggghts.h"
-#include "fix_move_mesh.h"
-#include "abstract_mesh.h"
-#include <list>
+#include "fix.h"
 
 namespace LAMMPS_NS
 {
-    class FixMesh : public FixBaseLiggghts
-    {
+  class FixMesh : public Fix
+  {
       public:
 
         FixMesh(LAMMPS *lmp, int narg, char **arg);
@@ -65,8 +50,8 @@ namespace LAMMPS_NS
         virtual void post_create();
         virtual void pre_delete(bool unfixflag);
 
-        virtual void init();
-        virtual void setup(int vflag);
+        virtual void init() {}
+        virtual void setup(int vflag) {}
 
         virtual int setmask();
         void setup_pre_force(int);
@@ -83,18 +68,11 @@ namespace LAMMPS_NS
         int min_type();
         int max_type();
 
-        void resetNodePosOrig(const FixMoveMesh * const caller);
-        void move(const double * const dx, const FixMoveMesh * const caller);
-        void rotate(const double dphi, const double * const axis, const double * const center, const FixMoveMesh * const caller);
-
         class AbstractMesh* mesh()
         { return mesh_; }
 
         virtual bool surfaceVel()
         { return false; }
-
-        inline bool trackPerElementTemp()
-        { return trackPerElementTemp_; }
 
         bool manipulated()
         { return manipulated_; }
@@ -102,45 +80,21 @@ namespace LAMMPS_NS
         bool verbose()
         { return verbose_; }
 
-        void register_move(FixMoveMesh * toInsert)
-        { fixMoveMeshes_.push_back(toInsert); }
-
-        void unregister_move(const FixMoveMesh * const toDelete)
-        {
-            std::list<FixMoveMesh *>::iterator it;
-            for (it = fixMoveMeshes_.begin(); it != fixMoveMeshes_.end(); it++)
-            {
-                if (*it == toDelete)
-                {
-                    fixMoveMeshes_.erase(it);
-                    return;
-                }
-            }
-        }
-
       protected:
 
         // mesh manipulation upon creation
         virtual void moveMesh(double const dx, double const dy, double const dz);
-
         virtual void rotateMesh(double const axisX, double const axisY, double const axisZ, double const phi);
         virtual void scaleMesh(double const factor);
 
-        void create_mesh(char *mesh_fname, bool is_fix);
-        void create_mesh_restart(char *mesh_fname);
+        void create_mesh(char *mesh_fname);
+        void create_mesh_restart();
 
         int iarg_;
 
         int atom_type_mesh_;
 
-        double temperature_mesh_;
-        double mass_temperature_;
-
-        bool trackPerElementTemp_;
-
       private:
-
-        void handle_exclusion_list();
 
         void initialSetup();
 
@@ -161,24 +115,7 @@ namespace LAMMPS_NS
 
         // mesh precision
         double precision_;
-
-        // ignore features smaller than this size
-        double min_feature_length_;
-
-        // mesh correction
-        FILE *element_exclusion_list_;
-        bool read_exclusion_list_;
-        int *exclusion_list_;
-        int size_exclusion_list_;
-
-        class FixPropertyGlobal *fix_capacity_;
-
-        std::list<FixMoveMesh *> fixMoveMeshes_;
-
-        // this friend class needs access to the moveMesh function
-        friend class MeshModuleStress6DOF;
-        friend class MeshModuleStress6DOFexternal;
-    };
+  };
 
 } /* namespace LAMMPS_NS */
 

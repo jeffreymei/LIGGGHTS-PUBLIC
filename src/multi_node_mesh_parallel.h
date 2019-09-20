@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_MULTI_NODE_MESH_PARALLEL_H
@@ -49,28 +33,19 @@
 #include "vector_liggghts.h"
 #include "neighbor.h"
 #include "math_extra_liggghts.h"
-#include "container_base.h"
-#include "domain_wedge.h"
-#include <string>
-#include <list>
-#include <cmath>
-#include <algorithm>
 
 namespace LAMMPS_NS
 {
-
   template<int NUM_NODES>
   class MultiNodeMeshParallel : public MultiNodeMesh<NUM_NODES>
   {
       public:
 
-        void initialSetup();
+        void initalSetup();
         void pbcExchangeBorders(int setupFlag);
         void clearReverse();
-        void forwardComm(std::string property);
-        void forwardComm(std::list<std::string> * properties = NULL);
-        void reverseComm(std::string property);
-        void reverseComm(std::list<std::string> * properties = NULL);
+        void forwardComm();
+        void reverseComm();
 
         void writeRestart(FILE *fp);
         void restart(double *list);
@@ -127,12 +102,12 @@ namespace LAMMPS_NS
         // lo-level parallelization also used by derived classes
 
         virtual int elemListBufSize(int n,int operation,bool scale,bool translate,bool rotate);
-        virtual int pushElemListToBuffer(int n, int *list, int *wraplist, double *buf, int operation, std::list<std::string> * properties, double *dlo, double *dhi, bool scale,bool translate, bool rotate);
-        virtual int popElemListFromBuffer(int first, int n, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate);
-        virtual int pushElemListToBufferReverse(int first, int n, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate);
-        virtual int popElemListFromBufferReverse(int n, int *list, double *buf, int operation, std::list<std::string> * properties, bool scale,bool translate, bool rotate);
+        virtual int pushElemListToBuffer(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate);
+        virtual int popElemListFromBuffer(int first, int n, double *buf, int operation,bool scale,bool translate, bool rotate);
+        virtual int pushElemListToBufferReverse(int first, int n, double *buf, int operation,bool scale,bool translate, bool rotate);
+        virtual int popElemListFromBufferReverse(int n, int *list, double *buf, int operation,bool scale,bool translate, bool rotate);
 
-        virtual int elemBufSize(int operation, std::list<std::string> * properties, bool scale,bool translate,bool rotate);
+        virtual int elemBufSize(int operation,bool scale,bool translate,bool rotate);
         virtual int pushElemToBuffer(int i, double *buf,int operation,bool scale,bool translate,bool rotate);
         virtual int popElemFromBuffer(double *buf,int operation,bool scale,bool translate,bool rotate);
 
@@ -154,9 +129,8 @@ namespace LAMMPS_NS
         void borders();
         void clearGhosts();
 
-        int checkBorderElement (const int, const int, const int, const double, const double) const;
-        int checkBorderElementLeft (const int, const int, const double, const double) const;
-        int checkBorderElementRight(const int, const int, const double, const double) const;
+        bool checkBorderElementLeft(int,int,double,double);
+        bool checkBorderElementRight(int,int,double,double);
 
         // lo-level parallelization
         int pushExchange(int dim);
@@ -218,7 +192,6 @@ namespace LAMMPS_NS
 
         double *slablo_,*slabhi_;
         int **sendlist_;             // list of elements to send in each swap
-        int **sendwraplist_;         // whether an element needs to be wrapped or not
         int *maxsendlist_;           // max size of send list for each swap
 
         int *pbc_flag_;              // general flag for sending atoms thru PBC

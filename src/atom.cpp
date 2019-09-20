@@ -1,59 +1,31 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
-#include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "mpi.h"
+#include "math.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "limits.h"
 #include "atom.h"
 #include "style_atom.h"
@@ -128,16 +100,6 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   cv = NULL;
   vest = NULL;
 
-//Superquadric bonus-----------------------------------
-  shape = NULL; //half axes and blockiness parameters
-  inertia = NULL; //components Ix, Iy, Iz
-  blockiness = NULL;
-  volume = NULL; area = NULL;
-  quaternion = NULL; //quaternion of current orientation and angular moment
-//------------------------------------------------------
-
-  shapetype = 0;
-
   maxspecial = 1;
   nspecial = NULL;
   special = NULL;
@@ -145,7 +107,6 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   num_bond = NULL;
   bond_type = bond_atom = NULL;
   bond_hist = NULL;
-  n_bondhist = 0; 
 
   num_angle = NULL;
   angle_type = angle_atom1 = angle_atom2 = angle_atom3 = NULL;
@@ -169,7 +130,6 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   // customize by adding new flag
 
   sphere_flag = ellipsoid_flag = line_flag = tri_flag = body_flag = 0;
-  superquadric_flag = 0;
   peri_flag = electron_flag = 0;
   wavepacket_flag = sph_flag = 0;
 
@@ -180,8 +140,12 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   cs_flag = csforce_flag = vforce_flag = ervelforce_flag= etag_flag = 0;
   rho_flag = e_flag = cv_flag = vest_flag = 0;
   p_flag = 0; 
-
-  shapetype_flag = 0;
+  
+  // used by USER-SEAICE:
+  
+  thickness = NULL;
+  tilt = NULL;
+  disk_flag = thickness_flag = tilt_flag = 0;
 
   // ntype-length arrays
 
@@ -212,30 +176,10 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   atom_style = NULL;
   avec = NULL;
 
-  // USER-SMD
-  contact_radius = NULL;
-  smd_data_9 = NULL;
-  smd_stress = NULL;
-  eff_plastic_strain = NULL;
-  eff_plastic_strain_rate = NULL;
-  damage = NULL;
-
   datamask = ALL_MASK;
   datamask_ext = ALL_MASK;
 
   radvary_flag = 0;
-
-  // USER-SMD
-  smd_flag = 0;
-  contact_radius_flag = 0;
-  smd_data_9_flag = 0;
-  smd_stress_flag = 0;
-  x0_flag = 0;
-  eff_plastic_strain_flag = 0;
-  eff_plastic_strain_rate_flag = 0;
-  damage_flag = 0;
-
-  properties = new Properties(lmp); 
 }
 
 /* ---------------------------------------------------------------------- */
@@ -317,16 +261,10 @@ Atom::~Atom()
   memory->destroy(improper_atom3);
   memory->destroy(improper_atom4);
 
-//Superquadric bonus-----------------------------------
-  memory->destroy(shape); //half axes and blockiness parameters
-  memory->destroy(inertia); //components Ix, Iy, Iz
-  memory->destroy(blockiness);
-  memory->destroy(volume);
-  memory->destroy(area);
-  memory->destroy(quaternion); //quaternion of current orientation
-//------------------------------------------------------
+  // used by USER-SEAICE:
 
-  memory->destroy(shapetype);
+  memory->destroy(thickness);
+  memory->destroy(tilt);
 
   // delete custom atom arrays
 
@@ -359,8 +297,6 @@ Atom::~Atom()
   // delete mapping data structures
 
   map_delete();
-
-  delete properties; 
 }
 
 /* ----------------------------------------------------------------------
@@ -394,8 +330,6 @@ void Atom::create_avec(const char *style, int narg, char **arg, char *suffix)
   density_flag = 0; 
   rho_flag = p_flag = 0; 
   vfrac_flag = spin_flag = eradius_flag = ervel_flag = erforce_flag = 0;
-
-  shapetype_flag = 0;
 
   // create instance of AtomVec
   // use grow to initialize atom-based arrays to length 1
@@ -874,7 +808,7 @@ void Atom::data_bonus(int n, char *buf, AtomVec *avec_bonus)
 
 void Atom::data_bodies(int n, char *buf, AtomVecBody *avec_body)
 {
-  int j,tagdata,ninteger,ndouble;
+  int j,m,tagdata,ninteger,ndouble;
 
   char **ivalues = new char*[10*MAXBODY];
   char **dvalues = new char*[10*MAXBODY];
@@ -897,6 +831,8 @@ void Atom::data_bodies(int n, char *buf, AtomVecBody *avec_body)
     if (tagdata <= 0 || tagdata > map_tag_max)
       error->one(FLERR,"Invalid atom ID in Bodies section of data file");
 
+    if ((m = map(tagdata)) >= 0)
+      avec_body->data_body(m,ninteger,ndouble,ivalues,dvalues);
   }
 
   delete [] ivalues;
@@ -1200,7 +1136,7 @@ void Atom::check_mass()
 {
   if (mass == NULL) return;
   for (int itype = 1; itype <= ntypes; itype++)
-    if (mass_setflag[itype] == 0 && !rmass_flag) error->all(FLERR,"All masses are not set"); 
+    if (mass_setflag[itype] == 0) error->all(FLERR,"All masses are not set");
 }
 
 /* ----------------------------------------------------------------------
@@ -1434,10 +1370,7 @@ void Atom::setup_sort_bins()
       binsize = pow(1.0*CUDA_CHUNK/natoms*area,1.0/2.0);
     }
   }
-  if (binsize == 0.0 && !lmp->wb)
-    error->all(FLERR,"Atom sorting has bin size = 0.0");
-  else if (binsize == 0.0)
-    error->all(FLERR,"No particles in the simulation. Please add particle templates");
+  if (binsize == 0.0) error->all(FLERR,"Atom sorting has bin size = 0.0");
 
   double bininv = 1.0/binsize;
 
@@ -1584,37 +1517,6 @@ void Atom::update_callback(int ifix)
 }
 
 /* ----------------------------------------------------------------------
-   look if has callback for this fix ID
-------------------------------------------------------------------------- */
-
-bool Atom::has_callback(const char *id, int flag)
-{
-  int ifix;
-  for (ifix = 0; ifix < modify->nfix; ifix++)
-    if (strcmp(id,modify->fix[ifix]->id) == 0) break;
-
-  // compact the list of callbacks
-
-  if (flag == 0) {
-    int match;
-    for (match = 0; match < nextra_grow; match++)
-      if (extra_grow[match] == ifix) return true;
-
-  } else if (flag == 1) {
-    int match;
-    for (match = 0; match < nextra_restart; match++)
-      if (extra_restart[match] == ifix) return true;
-
-  } else if (flag == 2) {
-    int match;
-    for (match = 0; match < nextra_border; match++)
-      if (extra_border[match] == ifix) return true;
-  }
-
-  return false;
-}
-
-/* ----------------------------------------------------------------------
    find custom per-atom vector with name
    return index if found, and flag = 0/1 for int/double
    return -1 if not found
@@ -1725,11 +1627,6 @@ void *Atom::extract(const char *name,int &len)
   if (strcmp(name,"density") == 0) return (void *) density; 
   if (strcmp(name,"rho") == 0) return (void *) rho;  
   if (strcmp(name,"pressure") == 0) return (void *) p;  
-  if (strcmp(name,"volume") == 0) return (void *) volume;
-  if (strcmp(name,"area") == 0) return (void *) area;
-
-  len = 2;
-  if (strcmp(name,"blockiness") == 0) return (void *) blockiness; 
 
   len = 3; 
   if (strcmp(name,"x") == 0) return (void *) x;
@@ -1745,13 +1642,6 @@ void *Atom::extract(const char *name,int &len)
   if (strcmp(name,"rmass") == 0) return (void *) rmass;
   if (strcmp(name,"vfrac") == 0) return (void *) vfrac;
   if (strcmp(name,"s0") == 0) return (void *) s0;
-
-#ifdef SUPERQUADRIC_ACTIVE_FLAG
-  if (strcmp(name,"shape") == 0 && shape!=NULL) return (void *) shape;
-
-  len = 4;
-  if (strcmp(name,"quaternion") == 0 && quaternion!=NULL) return (void *) quaternion;
-#endif
 
   len = -1; 
   return NULL;

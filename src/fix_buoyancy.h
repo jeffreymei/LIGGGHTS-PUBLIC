@@ -47,11 +47,11 @@ FixStyle(buoyancy,FixBuoyancy)
 #ifndef LMP_FIX_BUOYANCY_H
 #define LMP_FIX_BUOYANCY_H
 
-#include "fix_base_liggghts.h"
+#include "fix.h"
 
 namespace LAMMPS_NS {
 
-class FixBuoyancy : public FixBaseLiggghts {
+class FixBuoyancy : public Fix {
 
  public:
 
@@ -73,6 +73,10 @@ class FixBuoyancy : public FixBaseLiggghts {
 
   double density_;
   int nlevels_respa;
+
+  // fluid region
+  int iregion_;
+  char *id_region_;
 
   // fluid level
   int dim_;

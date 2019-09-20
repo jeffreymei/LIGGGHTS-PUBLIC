@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifdef CFD_DATACOUPLING_CLASS
@@ -52,7 +36,7 @@
 #include "multisphere_parallel.h"
 #include "error.h"
 #include "properties.h"
-#include <mpi.h>
+#include "mpi.h"
 
 namespace LAMMPS_NS {
 
@@ -73,9 +57,9 @@ class CfdDatacouplingMPI : public CfdDatacoupling {
   { return false;}
 
   void allocate_external(int    **&data, int len2,int len1,     int initvalue);
-  void allocate_external(int    **&data, int len2,const char *keyword,int initvalue);
+  void allocate_external(int    **&data, int len2,char *keyword,int initvalue);
   void allocate_external(double **&data, int len2,int len1,     double initvalue);
-  void allocate_external(double **&data, int len2,const char *keyword,double initvalue);
+  void allocate_external(double **&data, int len2,char *keyword,double initvalue);
 
  private:
   template <typename T> T* check_grow(int len);
@@ -102,13 +86,6 @@ void CfdDatacouplingMPI::pull_mpi(const char *name,const char *type,void *&from)
     if (atom->nlocal && (!to || len1 < 0 || len2 < 0))
     {
         if(screen) fprintf(screen,"LIGGGHTS could not find property %s to write data from calling program to.\n",name);
-
-        if(!to && len2 > 0)
-            if(screen) fprintf(screen,"Detailed info: reason is that len2 = %d, but pointer is empty. \n"
-                                      "The reason could be that property is not allocated within LIGGGHTS. \n"
-                                      "This hints to a NON allocated atom property (i.e., a deep error in your simulation setup). \n"
-                                      "Ensure that your atom properties do not collide with property/atom \n"
-                                      "(i.e., use a different property/atom name, or change your atom_style)!\n", len2);
         lmp->error->one(FLERR,"This is fatal");
     }
 
@@ -144,7 +121,7 @@ void CfdDatacouplingMPI::pull_mpi(const char *name,const char *type,void *&from)
     else if(strcmp(type,"scalar-multisphere") == 0)
     {
         T *to_t = (T*) to;
-        Multisphere *ms_data = properties_->ms_data();
+        MultisphereParallel *ms_data = properties_->ms_data();
         if(!ms_data)
             error->one(FLERR,"Transferring a multisphere property from/to LIGGGHTS requires a fix multisphere");
         for (int i = 0; i < len1; i++)
@@ -154,7 +131,7 @@ void CfdDatacouplingMPI::pull_mpi(const char *name,const char *type,void *&from)
     else if(strcmp(type,"vector-multisphere") == 0)
     {
         T **to_t = (T**) to;
-        Multisphere *ms_data = properties_->ms_data();
+        MultisphereParallel *ms_data = properties_->ms_data();
         if(!ms_data)
             error->one(FLERR,"Transferring a multisphere property from/to LIGGGHTS requires a fix multisphere");
         for (int i = 0; i < len1; i++)
@@ -183,7 +160,7 @@ void CfdDatacouplingMPI::push_mpi(const char *name,const char *type,void *&to)
     int nlocal = atom->nlocal;
     int nbodies = 0;
 
-    Multisphere *ms_data = properties_->ms_data();
+    MultisphereParallel *ms_data = properties_->ms_data();
     if(ms_data) nbodies = ms_data->n_body();
 
     // get reference where to write the data
@@ -193,12 +170,6 @@ void CfdDatacouplingMPI::push_mpi(const char *name,const char *type,void *&to)
     {
         
         if(screen) fprintf(screen,"LIGGGHTS could not find property %s to write data from calling program to.\n",name);
-        if(!from && len2 > 0)
-            if(screen) fprintf(screen,"Detailed info: reason is that len2 = %d, but pointer is empty. \n"
-                                      "The reason could be that property is not allocated within LIGGGHTS. \n"
-                                      "This hints to a NON allocated atom property (i.e., a deep error in your simulation setup). \n"
-                                      "Ensure that your atom properties do not collide with property/atom \n"
-                                      "(i.e., use a different property/atom name, or change your atom_style)!\n", len2);
         lmp->error->one(FLERR,"This is fatal");
     }
 
@@ -221,7 +192,7 @@ void CfdDatacouplingMPI::push_mpi(const char *name,const char *type,void *&to)
             allred[id-1] = from_t[i];
         }
     }
-    else if(strcmp(type,"vector-atom") == 0 || strcmp(type,"vector2D-atom") == 0 || strcmp(type,"quaternion-atom") == 0)
+    else if(strcmp(type,"vector-atom") == 0)
     {
         T **from_t = (T**) from;
         for (int i = 0; i < nlocal; i++)
@@ -240,7 +211,6 @@ void CfdDatacouplingMPI::push_mpi(const char *name,const char *type,void *&to)
         {
             id = ms_data->tag(i);
             allred[id-1] = from_t[i];
-            
         }
     }
     else if(strcmp(type,"vector-multisphere") == 0)

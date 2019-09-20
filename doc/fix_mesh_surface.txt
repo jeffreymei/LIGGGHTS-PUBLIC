@@ -15,7 +15,7 @@ fix ID group-ID mesh/surface data_keyword data_value premesh_keywords premesh_va
 fix ID group-ID mesh/surface/module_list data_keyword data_value premesh_keywords premesh_values mesh_keywords mesh_values surface_keywords surface_values module_keywords module_values
 fix ID group-ID mesh/surface/planar data_keyword data_value premesh_keywords premesh_values mesh_keywords mesh_values surface_keywords surface_values :pre
 
-ID, is documented in "fix"_fix.html command. :ulb,l
+ID, is documented in "fix"_fix.html command, the group-ID is ignored for this command. :ulb,l
 mesh/surface or mesh/surface/planar = style name of this fix command  :l
 module_list = list of mesh modules separated by / :l
 one data_keyword/data_value pair needs to be appended :l
@@ -89,10 +89,16 @@ imported if all of its vertices is inside the specified "region"_region.html. Pl
 the geometric extent of this "region"_region.html refer to the unscaled, unmoved, and unrotated
 original state of the geometry.
 
+<<<<<<< HEAD
 In general, you can apply scaling, offset and rotation to the imported mesh via
 keywords {scale}, {move}, {rotate}. Operations are applied in the order as they
 are specified. The rotation via {rotate} is performed around the rotation axis
 that goes through the origin (0,0,0) and in the direction of {axis}.
+=======
+Generall, you can apply scaling, offset and rotation to the imported mesh via keywords {scale}, 
+{move}, {rotate}. Operations are applied in the order as they are specified. The group-ID is 
+ignored for this command. For periodic boundaries, the mesh is mapped. 
+>>>>>>> parent of b3030a8... release version 3.1.0 on 2015-02-18_14-29-46
 
 The group-ID defines which particles will "see" the mesh, in case it is used as a granular wall.
 

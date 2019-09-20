@@ -1,45 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Richard Berger (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Richard Berger (JKU Linz)
+   Philippe Seil (JKU Linz)
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
 ------------------------------------------------------------------------- */
 
 #include "fix_neighlist_mesh.h"
@@ -55,7 +43,6 @@
 #include "update.h"
 #include <stdio.h>
 #include <algorithm>
-#include "atom_vec_ellipsoid.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -81,25 +68,13 @@ FixNeighlistMesh::FixNeighlistMesh(LAMMPS *lmp, int narg, char **arg)
   r(NULL),
   changingMesh(false),
   changingDomain(false),
-  last_bin_update(-1),
-  avec(0),
-  otherList_(false)
+  last_bin_update(-1)
 {
     if(!modify->find_fix_id(arg[3]) || !dynamic_cast<FixMeshSurface*>(modify->find_fix_id(arg[3])))
         error->fix_error(FLERR,this,"illegal caller");
 
     caller_ = static_cast<FixMeshSurface*>(modify->find_fix_id(arg[3]));
     mesh_ = caller_->triMesh();
-
-    if(5 == narg)
-    {
-        if(0 == strcmp(arg[4],"other_yes"))
-            otherList_ = true;
-        else if(0 == strcmp(arg[4],"other_no"))
-            otherList_ = false;
-        else error->fix_error(FLERR,this,"illegal");
-        
-    }
 
     groupbit_wall_mesh = groupbit;
 }
@@ -121,13 +96,8 @@ void FixNeighlistMesh::post_create()
     {
         const char* fixarg[9];
         delete [] fix_nneighs_name_;
-        fix_nneighs_name_ = new char[strlen(mesh_->mesh_id())+strlen(id)+1+20];
-
-        if(otherList_)
-            sprintf(fix_nneighs_name_,"n_neighs_mesh_%s_fix_%s",mesh_->mesh_id(),id);
-        
-        else
-            sprintf(fix_nneighs_name_,"n_neighs_mesh_%s",mesh_->mesh_id());
+        fix_nneighs_name_ = new char[strlen(mesh_->mesh_id())+1+14];
+        sprintf(fix_nneighs_name_,"n_neighs_mesh_%s",mesh_->mesh_id());
 
         fixarg[0]=fix_nneighs_name_;
         fixarg[1]="all";
@@ -141,10 +111,7 @@ void FixNeighlistMesh::post_create()
         fix_nneighs_ = modify->add_fix_property_atom(9,const_cast<char**>(fixarg),style);
 
         fix_nneighs_->just_created = false;
-        fix_nneighs_->set_internal();
     }
-    //check for aspherical
-    avec = (AtomVecEllipsoid *) atom->style_match("ellipsoid");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -195,7 +162,9 @@ void FixNeighlistMesh::min_setup_pre_force(int foo)
 void FixNeighlistMesh::pre_delete(bool unfixflag)
 {
     if(unfixflag)
+    {
         modify->delete_fix(fix_nneighs_->id);
+    }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -238,7 +207,7 @@ void FixNeighlistMesh::pre_force(int)
     numAllContacts_ = 0;
 
     // set num_neigh = 0
-    memset(fix_nneighs_->vector_atom, 0, atom->nmax*sizeof(double));
+    memset(fix_nneighs_->vector_atom, 0, atom->nlocal*sizeof(double));
 
     x = atom->x;
     r = atom->radius;
@@ -294,62 +263,8 @@ void FixNeighlistMesh::pre_force(int)
       numAllContacts_ += triangle.contacts.size();
     }
 
-    if(globalNumAllContacts_)
-        MPI_Sum_Scalar(numAllContacts_,world);
-
-    fix_nneighs_->do_forward_comm();
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixNeighlistMesh::checkBin(AtomVecEllipsoid::Bonus *bonus, std::vector<int>& neighbors, int& nchecked, double contactDistanceFactor, int *mask, int nlocal, int iBin, int iTri, bool haveNonSpherical, int *ellipsoid, double *shape)
-{
-    int iAtom = binhead[iBin];
-
-    // only handle local atoms and periodic ghosts
-    while(iAtom != -1)
-    {
-      if((iAtom > nlocal) && (!domain->is_periodic_ghost(iAtom)))
-      {
-          if(bins) iAtom = bins[iAtom];
-          else iAtom = -1;
-
-          continue;
-      }
-
-      if(! (mask[iAtom] & groupbit_wall_mesh))
-      {
-          if(bins) iAtom = bins[iAtom];
-          else iAtom = -1;
-          continue;
-      }
-      nchecked++;
-
-      if(0) {}
-      #ifdef TRI_LINE_ACTIVE_FLAG
-      else if(haveNonSpherical) //if non-spherical, check line interaction as well
-      {
-          double length;
-          double cylRadius;
-          shape     = bonus[ellipsoid[iAtom]].shape;
-          length    = 2.*MathExtraLiggghts::max(shape[0],shape[1],shape[2]);
-          cylRadius =    MathExtraLiggghts::min(shape[0],shape[1],shape[2]);
-          if( mesh_->resolveTriSegmentNeighbuild(iTri, x[iAtom], length*contactDistanceFactor, cylRadius, skin ) )
-          {
-            neighbors.push_back(iAtom);
-            fix_nneighs_->set_vector_atom_int(iAtom, fix_nneighs_->get_vector_atom_int(iAtom)+1); // num_neigh++
-          }
-      }
-      #endif
-      else if(mesh_->resolveTriSphereNeighbuild(iTri,r ? r[iAtom]*contactDistanceFactor : 0. ,x[iAtom],r ? skin : (distmax+skin) ))
-      {
-        // include iAtom in neighbor list
-        neighbors.push_back(iAtom);
-        fix_nneighs_->set_vector_atom_int(iAtom, fix_nneighs_->get_vector_atom_int(iAtom)+1); // num_neigh++
-        
-      }
-      if(bins) iAtom = bins[iAtom];
-      else iAtom = -1;
+    if(globalNumAllContacts_) {
+      MPI_Sum_Scalar(numAllContacts_,world);
     }
 }
 
@@ -365,17 +280,8 @@ void FixNeighlistMesh::handleTriangle(int iTri)
     int nlocal = atom->nlocal;
     double contactDistanceFactor = neighbor->contactDistanceFactor;
 
-    int                     *ellipsoid  = atom->ellipsoid;
-    AtomVecEllipsoid::Bonus *bonus = 0;
-    double *shape = 0;
-    bool    haveNonSpherical = false;
-    if(ellipsoid)
-    {
-        haveNonSpherical = true;
-        bonus = avec->bonus;
-    }
-
     neighbors.clear();
+
     nchecked = 0;
 
     // only do this if I own particles
@@ -388,9 +294,31 @@ void FixNeighlistMesh::handleTriangle(int iTri)
         for(int ix=ixMin;ix<=ixMax;ix++) {
           for(int iy=iyMin;iy<=iyMax;iy++) {
             for(int iz=izMin;iz<=izMax;iz++) {
-              const int iBin = iz*mbiny*mbinx + iy*mbinx + ix;
+              int iBin = iz*mbiny*mbinx + iy*mbinx + ix;
               if(iBin < 0 || iBin >= maxhead) continue;
-              checkBin(bonus, neighbors, nchecked, contactDistanceFactor, mask, nlocal, iBin, iTri, haveNonSpherical, ellipsoid, shape);
+
+              int iAtom = binhead[iBin];
+              
+              while(iAtom != -1 && iAtom < nlocal)
+              {
+                if(! (mask[iAtom] & groupbit_wall_mesh))
+                {
+                    if(bins) iAtom = bins[iAtom];
+                    else iAtom = -1;
+                    continue;
+                }
+                nchecked++;
+
+                if(mesh_->resolveTriSphereNeighbuild(iTri,r ? r[iAtom]*contactDistanceFactor : 0. ,x[iAtom],r ? skin : (distmax+skin) ))
+                {
+                  
+                  neighbors.push_back(iAtom);
+                  fix_nneighs_->set_vector_atom_int(iAtom, fix_nneighs_->get_vector_atom_int(iAtom)+1); // num_neigh++
+                  
+                }
+                if(bins) iAtom = bins[iAtom];
+                else iAtom = -1;
+              }
             }
           }
         }
@@ -399,7 +327,27 @@ void FixNeighlistMesh::handleTriangle(int iTri)
         const int bincount = triangleBins.size();
         for(int i = 0; i < bincount; i++) {
           const int iBin = triangleBins[i];
-          checkBin(bonus, neighbors, nchecked, contactDistanceFactor, mask, nlocal, iBin, iTri, haveNonSpherical, ellipsoid, shape);
+          
+          int iAtom = binhead[iBin];
+          while(iAtom != -1 && iAtom < nlocal)
+          {
+            if(! (mask[iAtom] & groupbit_wall_mesh))
+            {
+                if(bins) iAtom = bins[iAtom];
+                else iAtom = -1;
+                continue;
+            }
+            nchecked++;
+
+            if(mesh_->resolveTriSphereNeighbuild(iTri,r ? r[iAtom]*contactDistanceFactor : 0. ,x[iAtom],r ? skin : (distmax+skin) ))
+            {
+              
+              neighbors.push_back(iAtom);
+              fix_nneighs_->set_vector_atom_int(iAtom, fix_nneighs_->get_vector_atom_int(iAtom)+1); // num_neigh++
+            }
+            if(bins) iAtom = bins[iAtom];
+            else iAtom = -1;
+          }
         }
       }
     }

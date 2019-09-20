@@ -1,57 +1,33 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   This file was modified with respect to the release in LAMMPS
+   Modifications are Copyright 2009-2012 JKU Linz
+                     Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS, but has been modified. Copyright for
-    modification:
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
-
-    Copyright of original file:
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdlib.h"
+#include "string.h"
 #include "dump_custom.h"
 #include "atom.h"
 #include "force.h"
@@ -81,14 +57,11 @@ enum{ID,MOL,TYPE,ELEMENT,MASS,
      OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
      TQX,TQY,TQZ,SPIN,ERADIUS,ERVEL,ERFORCE,
      COMPUTE,FIX,VARIABLE,
-     DENSITY, RHO, P,
-     SHAPEX, SHAPEY, SHAPEZ,
-     QUAT1, QUAT2, QUAT3, QUAT4,
-     BLOCKINESS1, BLOCKINESS2,
-     INERTIAX, INERTIAY, INERTIAZ}; 
+     DENSITY, RHO, P}; 
 enum{LT,LE,GT,GE,EQ,NEQ};
 enum{INT,DOUBLE,STRING};    // same as in DumpCFG
 
+#define INVOKED_PERATOM 8
 #define ONEFIELD 32
 #define DELTA 1048576
 
@@ -1054,7 +1027,7 @@ int DumpCustom::parse_fields(int narg, char **arg)
     if (strcmp(arg[iarg],"id") == 0) {
       pack_choice[i] = &DumpCustom::pack_id;
       vtype[i] = INT;
-    } else if (strcmp(arg[iarg],"mol") == 0 || strcmp(arg[iarg],"id_multisphere") == 0) {
+    } else if (strcmp(arg[iarg],"mol") == 0) {
       if (!atom->molecule_flag)
         error->all(FLERR,"Dumping an atom property that isn't allocated");
       pack_choice[i] = &DumpCustom::pack_molecule;
@@ -1264,70 +1237,6 @@ int DumpCustom::parse_fields(int narg, char **arg)
     // compute value = c_ID
     // if no trailing [], then arg is set to 0, else arg is int between []
 
-    } else if (strcmp(arg[iarg],"shapex") == 0) { 
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_shapex;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"shapey") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_shapey;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"shapez") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_shapez;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"quat1") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_quat1;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"quat2") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_quat2;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"quat3") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_quat3;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"quat4") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_quat4;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"blockiness1") == 0 or strcmp(arg[iarg],"roundness1") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      if(strcmp(arg[iarg],"roundness1") == 0)
-        error->warning(FLERR,"Keyword 'roundness1' will be deprecated in future, please use 'blockiness1' istead");
-      pack_choice[i] = &DumpCustom::pack_blockiness1;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"blockiness2") == 0 or strcmp(arg[iarg],"roundness2") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      if(strcmp(arg[iarg],"roundness2") == 0)
-        error->warning(FLERR,"Keyword 'roundness2' will be deprecated in future, please use 'blockiness2' istead");
-      pack_choice[i] = &DumpCustom::pack_blockiness2;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"inertiax") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_inertiax;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"inertiay") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_inertiay;
-      vtype[i] = DOUBLE;
-    } else if (strcmp(arg[iarg],"inertiaz") == 0) {
-      if (!atom->superquadric_flag)
-        error->all(FLERR,"Dumping an atom quantity that isn't allocated");
-      pack_choice[i] = &DumpCustom::pack_inertiaz;
-      vtype[i] = DOUBLE;
     } else if (strncmp(arg[iarg],"c_",2) == 0) {
       pack_choice[i] = &DumpCustom::pack_compute;
       vtype[i] = DOUBLE;
@@ -1574,7 +1483,7 @@ int DumpCustom::modify_param(int narg, char **arg)
     // customize by adding to if statement
 
     if (strcmp(arg[1],"id") == 0) thresh_array[nthresh] = ID;
-    else if (strcmp(arg[1],"mol") == 0 || strcmp(arg[1],"id_multisphere") == 0) thresh_array[nthresh] = MOL;
+    else if (strcmp(arg[1],"mol") == 0) thresh_array[nthresh] = MOL;
     else if (strcmp(arg[1],"type") == 0) thresh_array[nthresh] = TYPE;
     else if (strcmp(arg[1],"mass") == 0) thresh_array[nthresh] = MASS;
 
@@ -1656,18 +1565,6 @@ int DumpCustom::modify_param(int narg, char **arg)
     else if (strcmp(arg[1],"eradius") == 0) thresh_array[nthresh] = ERADIUS;
     else if (strcmp(arg[1],"ervel") == 0) thresh_array[nthresh] = ERVEL;
     else if (strcmp(arg[1],"erforce") == 0) thresh_array[nthresh] = ERFORCE;
-    else if (strcmp(arg[1],"shapex") == 0) thresh_array[nthresh] = SHAPEX; 
-    else if (strcmp(arg[1],"shapey") == 0) thresh_array[nthresh] = SHAPEY;
-    else if (strcmp(arg[1],"shapez") == 0) thresh_array[nthresh] = SHAPEZ;
-    else if (strcmp(arg[1],"quat1") == 0) thresh_array[nthresh] = QUAT1;
-    else if (strcmp(arg[1],"quat2") == 0) thresh_array[nthresh] = QUAT2;
-    else if (strcmp(arg[1],"quat3") == 0) thresh_array[nthresh] = QUAT3;
-    else if (strcmp(arg[1],"quat4") == 0) thresh_array[nthresh] = QUAT4;
-    else if (strcmp(arg[1],"blockiness1") == 0) thresh_array[nthresh] = BLOCKINESS1;
-    else if (strcmp(arg[1],"blockiness2") == 0) thresh_array[nthresh] = BLOCKINESS2;
-    else if (strcmp(arg[1],"inertiax") == 0) thresh_array[nthresh] = INERTIAX;
-    else if (strcmp(arg[1],"inertiay") == 0) thresh_array[nthresh] = INERTIAY;
-    else if (strcmp(arg[1],"inertiaz") == 0) thresh_array[nthresh] = INERTIAZ;
 
     // compute value = c_ID
     // if no trailing [], then arg is set to 0, else arg is between []
@@ -2658,150 +2555,6 @@ void DumpCustom::pack_erforce(int n)
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = erforce[clist[i]];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_shapex(int n)
-{
-  double **shape = atom->shape;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = shape[clist[i]][0];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_shapey(int n)
-{
-  double **shape = atom->shape;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = shape[clist[i]][1];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_shapez(int n)
-{
-  double **shape = atom->shape;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = shape[clist[i]][2];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_quat1(int n)
-{
-  double **quaternion = atom->quaternion;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = quaternion[clist[i]][0];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_quat2(int n)
-{
-  double **quaternion = atom->quaternion;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = quaternion[clist[i]][1];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_quat3(int n)
-{
-  double **quaternion = atom->quaternion;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = quaternion[clist[i]][2];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_quat4(int n)
-{
-  double **quaternion = atom->quaternion;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = quaternion[clist[i]][3];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_blockiness1(int n)
-{
-  double **blockiness = atom->blockiness;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = blockiness[clist[i]][0];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_blockiness2(int n)
-{
-  double **blockiness = atom->blockiness;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = blockiness[clist[i]][1];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_inertiax(int n)
-{
-  double **inertia = atom->inertia;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = inertia[clist[i]][0];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_inertiay(int n)
-{
-  double **inertia = atom->inertia;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = inertia[clist[i]][1];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_inertiaz(int n)
-{
-  double **inertia = atom->inertia;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = inertia[clist[i]][2];
     n += size_one;
   }
 }

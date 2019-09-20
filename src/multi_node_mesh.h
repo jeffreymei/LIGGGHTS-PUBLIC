@@ -1,44 +1,32 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
+   See the README file in the top-level directory.
+------------------------------------------------------------------------- */
 
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-
-    Christoph Kloss (DCS Computing GmbH, Linz)
-    Christoph Kloss (JKU Linz)
-    Philippe Seil (JKU Linz)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+/* ----------------------------------------------------------------------
+   Contributing authors:
+   Christoph Kloss (JKU Linz, DCS Computing GmbH, Linz)
+   Philippe Seil (JKU Linz)
 ------------------------------------------------------------------------- */
 
 #ifndef LMP_MULTI_NODE_MESH_H
@@ -52,9 +40,6 @@
 #include "container.h"
 #include "bounding_box.h"
 #include "random_park.h"
-#include <stdio.h>
-#include <cmath>
-#include <algorithm>
 
 #define EPSILON_PRECISION 1e-8
 
@@ -72,52 +57,30 @@ namespace LAMMPS_NS
 
         void setPrecision(double _precision);
 
-        void setMinFeatureLength(double _min_feature_length);
-
-        void setElementExclusionList(FILE *_file);
-
         void autoRemoveDuplicates();
 
         // scale mesh
         virtual void scale(double factor);
 
         // linear move w/ total and incremental displacement
-        virtual void move(const double * const vecTotal, const double * const vecIncremental);
+        virtual void move(double *vecTotal, double *vecIncremental);
 
         // linear move w/ incremental displacement
-        virtual void move(const double * const vecIncremental);
+        virtual void move(double *vecIncremental);
 
         // rotation w/ total and incremental displacement
         //   calls rotate(double *totalQuat,double *dQuat,double *displacement)
-        void rotate(const double totalAngle, const double dAngle, const double * const axis, const double * const p);
+        void rotate(double totalAngle, double dAngle, double *axis, double *p);
 
         // rotation w/ incremental displacement
         //   calls rotate(double *dQuat,double *displacement)
-        void rotate(const double dAngle, const double * const axis, const double * const p);
+        void rotate(double dAngle, double *axis, double *p);
 
         void updateCenterRbound(int ilo,int ihi);
 
         // initialize movement
         bool registerMove(bool _scale, bool _translate, bool _rotate);
         void unregisterMove(bool _scale, bool _translate, bool _rotate);
-
-        // flags for saving global linear and angular velocity
-        void set_store_vel()
-        { store_vel++; }
-        void set_store_omega()
-        { store_omega++; }
-        void unset_store_vel()
-        { store_vel = store_vel > 1 ? store_vel-1 : 0; }
-        void unset_store_omega()
-        { store_omega = store_omega > 1 ? store_omega-1 : 0; }
-        bool is_set_store_vel()
-        { return store_vel ? true : false; }
-        bool is_set_store_omega()
-        { return store_omega ? true : false; }
-
-        // functions to obtain global linear and angular velocity
-        void get_global_vel(double * vel);
-        void get_global_omega(double * omega);
 
         // bbox stuff
         BoundingBox getGlobalBoundingBox() const;
@@ -127,9 +90,6 @@ namespace LAMMPS_NS
         // neigh list stuff for moving mesh
         bool decideRebuild();
         void storeNodePosRebuild();
-
-        // function for mesh import debugging
-        void center_of_mass(double *_com);
 
         // inline access
 
@@ -203,12 +163,12 @@ namespace LAMMPS_NS
         void extendToElem(int const nElem) const;
 
         // linear move of single element w/ incremental displacement
-        virtual void moveElement(const int i, const double * const vecIncremental);
+        virtual void moveElement(int i,double *vecIncremental);
 
         // rotation using quaternions
         
-        virtual void rotate(const double * const totalQ, const double * const dQ, const double * const origin);
-        virtual void rotate(const double * const dQ, const double * const origin);
+        virtual void rotate(double *totalQ, double *dQ,double *origin);
+        virtual void rotate(double *dQ, double *origin);
 
         // mesh nodes
         MultiVectorContainer<double,NUM_NODES,3> node_;
@@ -233,8 +193,6 @@ namespace LAMMPS_NS
         // mesh ID - same as fix mesh ID
         char *mesh_id_;
 
-        // for overlap check on element insertion
-        
         inline void reset_stepLastReset()
         { stepLastReset_ = -1; }
 
@@ -243,24 +201,10 @@ namespace LAMMPS_NS
         
         virtual bool resetToOrig();
 
-        inline double precision()
-        { return precision_; }
-
-        inline double minFeatureLength()
-        { return min_feature_length_; }
-
-        inline FILE* elementExclusionList()
-        { return element_exclusion_list_; }
-
       private:
 
         // mesh precision
         double precision_;
-
-        // ignore features smaller than this size
-        double min_feature_length_;
-
-        FILE *element_exclusion_list_;
 
         // state if elements should be automatically removed if duplicate
         bool autoRemoveDuplicates_;
@@ -268,15 +212,6 @@ namespace LAMMPS_NS
         // flags stating how many move operations are performed on the mesh
         int nMove_;
         int nScale_,nTranslate_,nRotate_;
-
-        // counters to decide whether mesh linear and angular velocity are stored
-        int store_vel, store_omega;
-
-        // step when velocities where last stored
-        int step_store_vel, step_store_omega;
-
-        // storage for global mesh linear and angular velocity
-        double global_vel[3], global_quaternion[4], prev_quaternion[4];
 
         // store current node position for use by moving mesh
         void storeNodePosOrig(int ilo, int ihi);

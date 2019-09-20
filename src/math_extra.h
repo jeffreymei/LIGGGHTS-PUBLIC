@@ -1,46 +1,14 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
-
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
-
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
-
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
-
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    This file is from LAMMPS
-    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-    http://lammps.sandia.gov, Sandia National Laboratories
-    Steve Plimpton, sjplimp@sandia.gov
-
-    Copyright (2003) Sandia Corporation.  Under the terms of Contract
-    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-    certain rights in this software.  This software is distributed under
-    the GNU General Public License.
+   See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
@@ -50,9 +18,9 @@
 #ifndef LMP_MATH_EXTRA_H
 #define LMP_MATH_EXTRA_H
 
-#include <cmath>
-#include <stdio.h>
-#include <string.h>
+#include "math.h"
+#include "stdio.h"
+#include "string.h"
 #include "error.h"
 
 namespace MathExtra {
@@ -106,10 +74,10 @@ namespace MathExtra {
   int mldivide3(const double mat[3][3], const double *vec, double *ans);
   int jacobi(double matrix[3][3], double *evalues, double evectors[3][3]);
   int jacobi(double **matrix, double *evalues, double **evectors);
-  void rotate(double matrix[3][3], const int i, const int j, const int k, const int l,
-              const double s, const double tau);
-  void rotate(double * const * const matrix, const int i, const int j, const int k, const int l,
-              const double s, const double tau);
+  void rotate(double matrix[3][3], int i, int j, int k, int l,
+              double s, double tau);
+  void rotate(double **matrix, int i, int j, int k, int l,
+              double s, double tau);
   void richardson(double *q, double *m, double *w, double *moments, double dtq);
 
   // shape matrix operations
@@ -124,7 +92,7 @@ namespace MathExtra {
   inline void qconjugate(double *q, double *qc);
   inline void vecquat(double *a, double *b, double *c);
   inline void quatvec(double *a, double *b, double *c);
-  inline void quatquat(const double * const a, const double * const b, double * const c);
+  inline void quatquat(double *a, double *b, double *c);
   inline void invquatvec(double *a, double *b, double *c);
   inline void axisangle_to_quat(const double *v, const double angle,
                                 double *quat);
@@ -163,7 +131,7 @@ namespace MathExtra {
 
 void MathExtra::norm3(double *v)
 {
-  double scale = 1.0/::sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+  double scale = 1.0/sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
   v[0] *= scale;
   v[1] *= scale;
   v[2] *= scale;
@@ -175,7 +143,7 @@ void MathExtra::norm3(double *v)
 
 void MathExtra::normalize3(const double *v, double *ans)
 {
-  double scale = 1.0/::sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+  double scale = 1.0/sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
   ans[0] = v[0]*scale;
   ans[1] = v[1]*scale;
   ans[2] = v[2]*scale;
@@ -187,7 +155,7 @@ void MathExtra::normalize3(const double *v, double *ans)
 
 void MathExtra::snormalize3(const double length, const double *v, double *ans)
 {
-  double scale = length/::sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+  double scale = length/sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
   ans[0] = v[0]*scale;
   ans[1] = v[1]*scale;
   ans[2] = v[2]*scale;
@@ -243,7 +211,7 @@ void MathExtra::sub3(const double *v1, const double *v2, double *ans)
 
 double MathExtra::len3(const double *v)
 {
-  return ::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+  return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 }
 
 /* ----------------------------------------------------------------------
@@ -545,7 +513,7 @@ void MathExtra::multiply_shape_shape(const double *one, const double *two,
 
 void MathExtra::qnormalize(double *q)
 {
-  double norm = 1.0 / ::sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+  double norm = 1.0 / sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
   q[0] *= norm;
   q[1] *= norm;
   q[2] *= norm;
@@ -593,7 +561,7 @@ void MathExtra::quatvec(double *a, double *b, double *c)
    quaternion-quaternion multiply: c = a*b
 ------------------------------------------------------------------------- */
 
-void MathExtra::quatquat(const double * const a, const double * const b, double * const c)
+void MathExtra::quatquat(double *a, double *b, double *c)
 {
   c[0] = a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3];
   c[1] = a[0]*b[1] + b[0]*a[1] + a[2]*b[3] - a[3]*b[2];
@@ -624,8 +592,8 @@ void MathExtra::axisangle_to_quat(const double *v, const double angle,
                                   double *quat)
 {
   double halfa = 0.5*angle;
-  double sina = ::sin(halfa);
-  quat[0] = ::cos(halfa);
+  double sina = sin(halfa);
+  quat[0] = cos(halfa);
   quat[1] = v[0]*sina;
   quat[2] = v[1]*sina;
   quat[3] = v[2]*sina;

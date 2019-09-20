@@ -1,42 +1,26 @@
 /* ----------------------------------------------------------------------
-    This is the
+   LIGGGHTS® - LAMMPS Improved for General Granular and Granular Heat
+   Transfer Simulations
 
-    ██╗     ██╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗████████╗███████╗
-    ██║     ██║██╔════╝ ██╔════╝ ██╔════╝ ██║  ██║╚══██╔══╝██╔════╝
-    ██║     ██║██║  ███╗██║  ███╗██║  ███╗███████║   ██║   ███████╗
-    ██║     ██║██║   ██║██║   ██║██║   ██║██╔══██║   ██║   ╚════██║
-    ███████╗██║╚██████╔╝╚██████╔╝╚██████╔╝██║  ██║   ██║   ███████║
-    ╚══════╝╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝®
+   LIGGGHTS® is part of CFDEM®project
+   www.liggghts.com | www.cfdem.com
 
-    DEM simulation engine, released by
-    DCS Computing Gmbh, Linz, Austria
-    http://www.dcs-computing.com, office@dcs-computing.com
+   Christoph Kloss, christoph.kloss@cfdem.com
+   Copyright 2009-2012 JKU Linz
+   Copyright 2012-     DCS Computing GmbH, Linz
 
-    LIGGGHTS® is part of CFDEM®project:
-    http://www.liggghts.com | http://www.cfdem.com
+   LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
+   the producer of the LIGGGHTS® software and the CFDEM®coupling software
+   See http://www.cfdem.com/terms-trademark-policy for details.
 
-    Core developer and main author:
-    Christoph Kloss, christoph.kloss@dcs-computing.com
+   LIGGGHTS® is based on LAMMPS
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
-    LIGGGHTS® is open-source, distributed under the terms of the GNU Public
-    License, version 2 or later. It is distributed in the hope that it will
-    be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. You should have
-    received a copy of the GNU General Public License along with LIGGGHTS®.
-    If not, see http://www.gnu.org/licenses . See also top-level README
-    and LICENSE files.
+   This software is distributed under the GNU General Public License.
 
-    LIGGGHTS® and CFDEM® are registered trade marks of DCS Computing GmbH,
-    the producer of the LIGGGHTS® software and the CFDEM®coupling software
-    See http://www.cfdem.com/terms-trademark-policy for details.
-
--------------------------------------------------------------------------
-    Contributing author and copyright for this file:
-    (if not contributing author is listed, this file has been contributed
-    by the core developer)
-
-    Copyright 2012-     DCS Computing GmbH, Linz
-    Copyright 2009-2012 JKU Linz
+   See the README file in the top-level directory.
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -50,38 +34,6 @@ FixStyle(particletemplate/multiplespheres,FixTemplateMultiplespheres)
 
 #include "fix.h"
 #include "fix_template_sphere.h"
-#include "fix_property_atom.h"
-
-namespace PARTICLE_PACKING
-{
-
-class MultipleSphere : public Sphere
-{
-public:
-    MultipleSphere() :
-        Sphere(),
-        type(0),
-        bond_random_id(0.0)
-    {}
-
-    MultipleSphere(const double * const _x, const double _radius, const double _density, const int _id, const int _type, const double _bond_random_id) :
-        Sphere(_x, _radius, _density, _id),
-        type(_type),
-        bond_random_id(_bond_random_id)
-    {}
-
-    int get_type() const
-    { return type; }
-
-    double get_bond_random_id() const
-    { return bond_random_id; }
-
-private:
-    int type;
-    double bond_random_id;
-};
-
-}
 
 namespace LAMMPS_NS {
 
@@ -98,37 +50,21 @@ class FixTemplateMultiplespheres : public FixTemplateSphere {
   int maxtype();
   int mintype();
   int number_spheres();
-  bool is_bonded()
-  { return bonded; }
 
   // single insertion
   virtual void randomize_single();
 
   // multi insertion
-  virtual void init_ptilist(int n_random_max, const bool enforce_single = false, FixPropertyAtom * const fix_release = NULL);
-  void randomize_ptilist(int ,int ,int);
-  void direct_set_ptlist(const int i, const void * const data, const int distribution_groupbit, const int distorder);
+  virtual void init_ptilist(int);
+  void randomize_ptilist(int ,int );
 
   virtual void finalize_insertion() {}
-
-  virtual unsigned int generate_hash();
-
-  inline bool all_overlap_none()
-  { return no_overlap; }
-
-  inline bool all_overlap_atleast_one_slightly()
-  { return overlap_slightly; }
-
-  inline double get_bond_id(const int i) const
-  { return fix_bond_random_id ? fix_bond_random_id->vector_atom[i] : 0.0; }
 
  protected:
 
   // template calculations
   virtual void calc_bounding_sphere();
   virtual void calc_center_of_mass();
-  virtual void check_overlap();
-  virtual void print_info();
 
   // sqr distance from x_sphere[j] to xtest
   double dist_sqr(int j,double *xtest);
@@ -163,13 +99,6 @@ class FixTemplateMultiplespheres : public FixTemplateSphere {
 
   // number of tries for mc
   int ntry;
-
-  bool overlap_slightly;
-
-  bool no_overlap;
-
-  bool bonded;
-  class FixPropertyAtom *fix_bond_random_id;
 };
 
 }
