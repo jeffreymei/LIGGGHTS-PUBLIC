@@ -11,7 +11,17 @@ This is a fork of the
 DEM simulation engine, released by 
 DCS Computing GmbH, Linz, Austria
 www.dcs-computing.com, office@dcs-computing.com
+-----------------------------------------------------------------------
+██████████████████████████████████████████████████████████████████████████████████
+This toolkit has been modified, following Agnieszka Herman's Sea Ice Toolkit 
+(DESIgn, https://herman.ocean.ug.edu.pl/LIGGGHTSseaice.html), but extended into 3D.
+It uses the LIGGGHTS 3.1.0 version as a base. The buoyancy module from LIGGGHTS 
+3.3.0 has been added as well. 
 
+It has been tested to compile correctly with Ubuntu 14.04 
+(cd src; make -j4 ubuntuVTK). Examples are given in Examples/SeaIceRidging.
+███████████████████████████████████████████████████████████████████████████████████
+--------------------------------------------------------------------------
 LIGGGHTS® is open-source, distributed under the terms of the GNU Public 
 License, version 2 or later.
 
@@ -92,9 +102,3 @@ more information about the code and its uses.
 Core developer and main author of LIGGGHTS®:
 Christoph Kloss, christoph.kloss@dcs-computing.com
 
-This toolkit has been modified, following Agnieszka Herman's Sea Ice Toolkit 
-(DESIgn, https://herman.ocean.ug.edu.pl/LIGGGHTSseaice.html), but extended into 3D.
-It uses the LIGGGHTS 3.1.0 version as a base. The buoyancy module from LIGGGHTS 
-3.3.0 has been added as well. 
-
-It has been tested to compile correctly with Ubuntu 14.04 (cd src; make -j4 ubuntuVTK). 
